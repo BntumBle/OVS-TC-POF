@@ -1686,15 +1686,38 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                 action->encap.tp_dst = info->tp_dst_port;
                 action->encap.no_csum = !info->tunnel_csum_on;
             }
-        } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
-            const struct nlattr *set = nl_attr_get(nla);
-            const size_t set_len = nl_attr_get_size(nla);
+        }
+//        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
+//            const struct nlattr *set = nl_attr_get(nla);
+//            const size_t set_len = nl_attr_get_size(nla);
 
-            err = parse_put_flow_set_masked_action(&flower, action, set,
-                                                   set_len, true);
-            if (err) {
-                return err;
+//            err = parse_put_flow_set_masked_action(&flower, action, set,
+//                                                   set_len, true);
+//            if (err) {
+//                return err;
+//            }
+//        }
+        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
+            enum ovs_key_attr type = nl_attr_type(nla);
+            const struct ovs_key_add_field *p_key = nl_attr_get(nla);
+
+            switch (type) {
+                case OVS_KEY_ATTR_ADD_FIELD:
+                    uint8_t in_port_int = p_key->in_port;
+                    uint8_t out_port_int = p_key->out_port;
+                    ovs_be16 tci = (ovs_be16)(out_port_int << 8)|in_port_int;
+
+                    action->vlan.vlan_push_tpid = ;
+                    action->vlan.vlan_push_id = vlan_tci_to_vid(tci);
+                    action->vlan.vlan_push_prio = vlan_tci_to_pcp(tci);
+                    action->type = TC_ACT_VLAN_PUSH;
+                    flower.action_count++;
+
+                    break;
+                default:
+                    OVS_NOT_REACHED();
             }
+
         } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_CT) {
             const struct nlattr *ct = nl_attr_get(nla);
             const size_t ct_len = nl_attr_get_size(nla);

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(ovs C)
+project(OVS_TC_POF C)
 
 set(CMAKE_C_STANDARD 11)
 
@@ -49,7 +49,7 @@ include_directories(tests/oss-fuzz)
 include_directories(vswitchd)
 include_directories(vtep)
 
-add_executable(ovs
+add_executable(OVS_TC_POF
         datapath/linux/compat/include/linux/bug.h
         datapath/linux/compat/include/linux/cache.h
         datapath/linux/compat/include/linux/compiler-gcc.h
@@ -170,13 +170,61 @@ add_executable(ovs
         datapath/linux/compat/udp_tunnel.c
         datapath/linux/compat/utils.c
         datapath/linux/compat/vxlan.c
+        datapath/linux/actions.c
+        datapath/linux/conntrack.c
+        datapath/linux/datapath.c
+        datapath/linux/dev-openvswitch.c
+        datapath/linux/dp_notify.c
+        datapath/linux/dst_cache.c
+        datapath/linux/exthdrs_core.c
+        datapath/linux/flow.c
+        datapath/linux/flow_netlink.c
+        datapath/linux/flow_table.c
+        datapath/linux/genetlink-openvswitch.c
+        datapath/linux/geneve.c
+        datapath/linux/gre.c
+        datapath/linux/gso.c
+        datapath/linux/inet_fragment.c
+        datapath/linux/ip6_gre.c
+        datapath/linux/ip6_output.c
+        datapath/linux/ip6_tunnel.c
+        datapath/linux/ip_fragment.c
+        datapath/linux/ip_gre.c
+        datapath/linux/ip_output.c
+        datapath/linux/ip_tunnel.c
+        datapath/linux/ip_tunnels_core.c
         datapath/linux/kcompat.h
+        datapath/linux/lisp.c
+        datapath/linux/meter.c
+        datapath/linux/netdevice.c
+        datapath/linux/nf_conncount.c
+        datapath/linux/nf_conntrack_core.c
+        datapath/linux/nf_conntrack_proto.c
+        datapath/linux/nf_conntrack_reasm.c
+        datapath/linux/nf_conntrack_timeout.c
+        datapath/linux/nsh.c
         datapath/linux/openvswitch.mod.c
+        datapath/linux/reciprocal_div.c
+        datapath/linux/skbuff-openvswitch.c
+        datapath/linux/socket.c
+        datapath/linux/stt.c
+        datapath/linux/udp.c
+        datapath/linux/udp_tunnel.c
+        datapath/linux/utils.c
+        datapath/linux/vport-geneve.c
         datapath/linux/vport-geneve.mod.c
+        datapath/linux/vport-gre.c
         datapath/linux/vport-gre.mod.c
+        datapath/linux/vport-internal_dev.c
+        datapath/linux/vport-lisp.c
         datapath/linux/vport-lisp.mod.c
+        datapath/linux/vport-netdev.c
+        datapath/linux/vport-stt.c
         datapath/linux/vport-stt.mod.c
+        datapath/linux/vport-vxlan.c
         datapath/linux/vport-vxlan.mod.c
+        datapath/linux/vport.c
+        datapath/linux/vxlan.c
         datapath/actions.c
         datapath/compat.h
         datapath/conntrack.c
