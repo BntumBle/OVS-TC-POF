@@ -1706,8 +1706,9 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                     uint8_t in_port_int = p_key->in_port;
                     uint8_t out_port_int = p_key->out_port;
                     ovs_be16 tci = (ovs_be16)(out_port_int << 8)|in_port_int;
-
-                    action->vlan.vlan_push_tpid = ;
+                    uint16_t int_type = {0x0908};
+                    VLOG_INFO("++++++zq netdev_flow_put: int_type:%llx", int_type);
+                    action->vlan.vlan_push_tpid = int_type;
                     action->vlan.vlan_push_id = vlan_tci_to_vid(tci);
                     action->vlan.vlan_push_prio = vlan_tci_to_pcp(tci);
                     action->type = TC_ACT_VLAN_PUSH;
