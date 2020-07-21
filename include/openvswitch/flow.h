@@ -102,8 +102,12 @@ struct pof_flow {
     uint8_t flag[POF_MAX_MATCH_FIELD_NUM];  // tsf: indicate the corresponding index for the stored fields to be processed
     struct pof_metadata telemetry;          // tsf: to store the INT meta_data
 
-    uint8_t pad_to_flow[POF_MAX_MATCH_FIELD_NUM][90];
+    uint8_t pad_to_flow[POF_MAX_MATCH_FIELD_NUM][43];
 };
+#define OFP_ASSERT(EXPR)                                                \
+        extern int (*build_assert(void))[ sizeof(struct {               \
+                    unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]
+OFP_ASSERT(sizeof(struct pof_flow) == 680);/*zq:check the size of struct pof_flow*/
 
 struct pof_fp_flow {
     /* Metadata */
@@ -183,7 +187,7 @@ struct flow {
     uint8_t pad1[2];            /* Pad to 64 bits. */
     union flow_vlan_hdr vlans[FLOW_MAX_VLAN_HEADERS]; /* VLANs */
     ovs_be32 mpls_lse[ROUND_UP(FLOW_MAX_MPLS_LABELS, 2)]; /* MPLS label stack
-                                                             (with padding). */
+                                                             (with padding).  zq:size is 16 bytes*/
     /* L3 (64-bit aligned) */
     ovs_be32 nw_src;            /* IPv4 source address or ARP SPA. */
     ovs_be32 nw_dst;            /* IPv4 destination address or ARP TPA. */
@@ -216,6 +220,7 @@ struct flow {
                                  * Keep last for BUILD_ASSERT_DECL below. */
     ovs_be32 pad3;              /* Pad to 64 bits. */
 };
+OFP_ASSERT(sizeof(struct flow) == 680); /*zq:size of struct flow */
 BUILD_ASSERT_DECL(sizeof(struct flow) % sizeof(uint64_t) == 0);
 BUILD_ASSERT_DECL(sizeof(struct flow_tnl) % sizeof(uint64_t) == 0);
 BUILD_ASSERT_DECL(sizeof(struct ovs_key_nsh) % sizeof(uint64_t) == 0);

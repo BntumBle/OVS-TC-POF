@@ -174,10 +174,16 @@ ofputil_encode_switch_features(const struct ofputil_switch_features *features,
     }
     b = ofpraw_alloc_xid(raw, version, xid, 0);
     osf = ofpbuf_put_zeros(b, sizeof *osf);
-    osf->datapath_id = htonll(features->datapath_id);
-    osf->n_buffers = htonl(features->n_buffers);
+    osf->datapath_id = htonl((uint32_t)features->datapath_id);
+    /*zq:Use 32bit DeviceID instead of 64bit DeviceID*/
+    /*osf->n_buffers = htonl(features->n_buffers);zq: not needed*/
     osf->n_tables = features->n_tables;
-
+    osf->port_num = htons(features->port_num);/*htons(2);zq*/
+    osf->slotID=0;
+    strncpy(osf->vendor_id, szVendorName, POF_NAME_MAX_LENGTH);
+    strncpy(osf->dev_fw_id, "POFSwitch-1.4.0.015", POF_NAME_MAX_LENGTH);
+    strncpy(osf->dev_lkup_id, "POFSwitch-1.4.0.015", POF_NAME_MAX_LENGTH);
+    osf->capabilities = htonl(features->capabilities & OFPC_COMMON);
     osf->capabilities = htonl(features->capabilities &
                               ofputil_capabilities_mask(version));
     switch (version) {

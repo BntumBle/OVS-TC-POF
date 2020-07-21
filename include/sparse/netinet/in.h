@@ -49,6 +49,10 @@ struct in6_addr {
         uint8_t u_s6_addr[16];
     } u;
 };
+#define OFP_ASSERT(EXPR)                                                \
+        extern int (*build_assert(void))[ sizeof(struct {               \
+                    unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]
+OFP_ASSERT(sizeof(struct in6_addr) == 16);
 
 #define s6_addr u.u_s6_addr
 
