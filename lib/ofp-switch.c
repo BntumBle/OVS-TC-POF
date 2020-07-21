@@ -154,6 +154,7 @@ ofputil_encode_switch_features(const struct ofputil_switch_features *features,
     struct ofpbuf *b;
     enum ofp_version version;
     enum ofpraw raw;
+    char szVendorName[POF_NAME_MAX_LENGTH] = "HuaWei";
 
     version = ofputil_protocol_to_ofp_version(protocol);
     switch (version) {
@@ -191,13 +192,13 @@ ofputil_encode_switch_features(const struct ofputil_switch_features *features,
         if (features->capabilities & OFPUTIL_C_STP) {
             osf->capabilities |= htonl(OFPC10_STP);
         }
-        osf->actions = ofpact_bitmap_to_openflow(features->ofpacts,
-                                                 OFP10_VERSION);
+        /*osf->actions = ofpact_bitmap_to_openflow(features->ofpacts,
+                                                 OFP10_VERSION);zq*/
         break;
     case OFP13_VERSION:
     case OFP14_VERSION:
     case OFP15_VERSION:
-        osf->auxiliary_id = features->auxiliary_id;
+        /*osf->auxiliary_id = features->auxiliary_id;zq*/
         /* fall through */
     case OFP11_VERSION:
     case OFP12_VERSION:
@@ -205,7 +206,7 @@ ofputil_encode_switch_features(const struct ofputil_switch_features *features,
             osf->capabilities |= htonl(OFPC11_GROUP_STATS);
         }
         break;
-    default:
+        default:
         OVS_NOT_REACHED();
     }
 

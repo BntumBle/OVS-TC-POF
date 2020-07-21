@@ -3413,11 +3413,19 @@ handle_features_request(struct ofconn *ofconn, const struct ofp_header *oh)
     struct ofport *port;
     bool arp_match_ip;
     struct ofpbuf *b;
+    struct ofproto_port_dump dump;
+    struct ofproto_port ofproto_port;
 
     query_switch_features(ofproto, &arp_match_ip, &features.ofpacts);
 
     features.datapath_id = ofproto->datapath_id;
+    VLOG_INFO("++++++zq datapath_id=%016"PRIx64, ofproto->datapath_id);
+    VLOG_INFO("++++++zq datapath_name=%s", ofproto->name);
     features.n_buffers = 0;
+    features.port_num = 0;
+    OFPROTO_PORT_FOR_EACH (&ofproto_port, &dump, ofproto) {
+        features.port_num = features.port_num+1;
+    }
     features.n_tables = ofproto_get_n_visible_tables(ofproto);
     features.capabilities = (OFPUTIL_C_FLOW_STATS | OFPUTIL_C_TABLE_STATS |
                              OFPUTIL_C_PORT_STATS | OFPUTIL_C_QUEUE_STATS |

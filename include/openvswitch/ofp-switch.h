@@ -61,6 +61,7 @@ struct ofputil_switch_features {
     uint8_t auxiliary_id;       /* Identify auxiliary connections */
     enum ofputil_capabilities capabilities;
     uint64_t ofpacts;           /* Bitmap of OFPACT_* bits. */
+    uint16_t port_num;         /*  port_num added by zq */
 };
 
 enum ofperr ofputil_pull_switch_features(struct ofpbuf *,
