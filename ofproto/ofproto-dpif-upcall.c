@@ -1418,6 +1418,7 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
     switch (upcall->type) {
     case MISS_UPCALL:
     case SLOW_PATH_UPCALL:
+        VLOG_INFO("zq: enter slow_path_upcall");
         upcall_xlate(udpif, upcall, odp_actions, wc);
         return 0;
 

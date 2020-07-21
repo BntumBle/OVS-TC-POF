@@ -539,6 +539,8 @@ typedef void xlate_actions_handler(const struct ofpact *, size_t ofpacts_len,
 static bool may_receive(const struct xport *, struct xlate_ctx *);
 static void do_xlate_actions(const struct ofpact *, size_t ofpacts_len,
                              struct xlate_ctx *, bool, bool);
+static void pof_do_xlate_actions(const struct ofpact *, size_t ofpacts_len,
+                             struct xlate_ctx *, bool, bool);
 static void clone_xlate_actions(const struct ofpact *, size_t ofpacts_len,
                                 struct xlate_ctx *, bool, bool);
 static void xlate_normal(struct xlate_ctx *);
@@ -4173,14 +4175,16 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
                                      ctx->odp_actions, tnl_type);
             flow->tunnel = flow_tnl; /* Restore tunnel metadata */
         }
-    } else {
+    } else { //zq: run here
         odp_port = xport->odp_port;
         out_port = odp_port;
     }
 
-    if (out_port != ODPP_NONE) {
+    if (out_port != ODPP_NONE) {   //zq: run here
         /* Commit accumulated flow updates before output. */
+        VLOG_INFO("+++++++++++zq compose_output_action__: start xlate_commit_actions");
         xlate_commit_actions(ctx);
+        VLOG_INFO("+++++++++++zq compose_output_action__: finish xlate_commit_actions");
 
         if (xr) {
             /* Recirculate the packet. */
@@ -4462,7 +4466,7 @@ xlate_group_bucket(struct xlate_ctx *ctx, struct ofputil_bucket *bucket,
 
     ofpacts_execute_action_set(&action_list, &action_set);
     ctx->depth++;
-    do_xlate_actions(action_list.data, action_list.size, ctx, is_last_action,
+    pof_do_xlate_actions(action_list.data, action_list.size, ctx, is_last_action,
                      true);
     ctx->depth--;
 
@@ -5161,6 +5165,8 @@ xlate_output_action(struct xlate_ctx *ctx, ofp_port_t port,
 
     switch (port) {
     case OFPP_IN_PORT:
+        VLOG_INFO("zq: xlate_output_action: OFPP_IN_PORT, inport=%"PRIu32,
+                  ctx->xin->flow.in_port.ofp_port);
         compose_output_action(ctx, ctx->xin->flow.in_port.ofp_port, NULL,
                               is_last_action, truncate);
         break;
@@ -5864,7 +5870,7 @@ xlate_action_set(struct xlate_ctx *ctx)
         struct ovs_list *old_trace = ctx->xin->trace;
         ctx->xin->trace = xlate_report(ctx, OFT_TABLE,
                                        "--. Executing action set:");
-        do_xlate_actions(action_list.data, action_list.size, ctx, true, false);
+        pof_do_xlate_actions(action_list.data, action_list.size, ctx, true, false);
         ctx->xin->trace = old_trace;
 
         ctx->in_action_set = false;
@@ -6665,13 +6671,28 @@ xlate_ofpact_unroll_xlate(struct xlate_ctx *ctx,
 }
 
 static void
-do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
+pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                  struct xlate_ctx *ctx, bool is_last_action,
                  bool group_bucket_action)
 {
-    struct flow_wildcards *wc = ctx->wc;
-    struct flow *flow = &ctx->xin->flow;
+    struct pof_fp_flow_wildcards *wc = ctx->wc;
+    struct pof_flow *flow = &ctx->xin->flow;
     const struct ofpact *a;
+
+    /* zq: memset pof_flow.flag[8], try to support multiple action.
+     *      the `flow->flag` indicates that which type of action will be stored. And
+     *      I use `action_num` as action_field array index, so that action_field can
+     *      be stored in unfixed place. Every loop only parse one action, then the
+     *      `action_num` increments 1.
+     * */
+    memset(flow->flag, 0x00, sizeof (flow->flag));
+    int action_num = 0;
+
+    /* tsf: initialize the pof_metadata */
+    flow->telemetry.in_port = ctx->xin->flow.in_port.ofp_port;
+    const char *datapath_name = "br0";
+    struct ofproto *ofproto = ofproto_lookup(datapath_name);
+    flow->telemetry.device_id = (uint32_t) ofproto->datapath_id;
 
     /* dl_type already in the mask, not set below. */
 
@@ -6684,6 +6705,10 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         struct ofpact_controller *controller;
         const struct ofpact_metadata *metadata;
         const struct ofpact_set_field *set_field;
+        const struct ofpact_add_field *add_field;
+        const struct ofpact_drop *drop;
+        const struct ofpact_modify_field *modify_field;
+        const struct ofpact_delete_field *delete_field;
         const struct mf_field *mf;
         bool last = is_last_action && ofpact_last(a, ofpacts, ofpacts_len)
                     && ctx->action_set.size;
@@ -6714,10 +6739,67 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
 
         switch (a->type) {
         case OFPACT_OUTPUT:
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_OUTPUT->type:%d, len:%d", a->type, a->len);
+            flow->telemetry.out_port = ofpact_get_OUTPUT(a)->port;
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len, true, last,
                                 false, group_bucket_action);
             break;
+
+        case OFPACT_DROP:    /* zq: add OFPACT_DROP in #define OFPACTS */
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_DROP");
+            /* no operation means to drop */
+            drop = ofpact_get_DROP(a);
+            /*VLOG_INFO("action_drop has been done! The drop reason is %d.", drop->reason_code);*/
+            break;
+
+        case OFPACT_ADD_FIELD: {
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);*/
+            add_field = ofpact_get_ADD_FIELD(a);
+
+            flow->field_id[action_num] = htons(add_field->tag_id);
+            flow->len[action_num] = htons(add_field->tag_len / 8);  // bytes
+            flow->offset[action_num] = htons(add_field->tag_pos / 8);
+            flow->flag[action_num] = OFPACT_ADD_FIELD;
+            /*VLOG_INFO("++++++tsf pof_do_xlate_actions: flow->field_id=%x", flow->field_id[action_num]);*/
+
+            if (flow->field_id[action_num] == 0xffff) {  // tsf: execute add_dynamic_field, i.e. selective INT
+                wc->masks.sel_int_action = true;
+            }
+
+            memcpy(flow->value[action_num], add_field->tag_value, add_field->tag_len / 8);
+            memset(flow->mask[action_num], 0xff, add_field->tag_len / 8);
+
+            action_num++;
+        }
+            break;
+
+        case OFPACT_DELETE_FIELD:
+//            {
+//            /*VLOG_INFO("+++++++tsf pof_do_xlate_actions OFPACT_DELETE_FIELD->type:%d, len:%d", a->type, a->len);*/
+//            delete_field = ofpact_get_DELETE_FIELD(a);
+//
+//            flow->offset[action_num] = htons(delete_field->tag_pos);
+//            flow->len[action_num] = delete_field->len_type;
+//            flow->flag[action_num] = OFPACT_DELETE_FIELD;
+//            /*VLOG_INFO("++++++tsf pof_do_xlate_actions delete_field, offset=%d, len=%d", delete_field->tag_pos,delete_field->len_type);*/
+//
+//            struct pof_match *pm;
+//            memset(flow->value[action_num], 0x00, sizeof(flow->value[action_num]));
+//            memset(flow->mask[action_num], 0x00, sizeof(flow->mask[action_num]));
+//            if (flow->len[action_num] == 0) { // POFVT_IMMEDIATE_NUM, will cut 32b to 16 b in commit_odp_actions()
+//                memcpy(flow->value[action_num], &delete_field->tag_len.value, sizeof(delete_field->tag_len.value));
+//                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len.value));
+//                /*VLOG_INFO("++++++tsf pof_do_xlate_actions offset=%d, len=%d", delete_field->tag_pos, delete_field->tag_len.value);*/
+//            } else {  // // POFVT_FIELD
+//                memcpy(flow->value[action_num], &delete_field->tag_len, sizeof(delete_field->tag_len));  // tsf: copy all union
+//                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len));
+//                /*pm = (struct pof_match *) flow->value[3];
+//                VLOG_INFO("++++++tsf pof_do_xlate_actions offset=%d, len=%d", pm->offset/8, pm->len/8);*/
+//                }
+//                action_num++;
+//            }
+                break;
 
         case OFPACT_GROUP:
             if (xlate_group_action(ctx, ofpact_get_GROUP(a)->group_id, last)) {
@@ -6729,299 +6811,11 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             }
             break;
 
-        case OFPACT_CONTROLLER:
-            controller = ofpact_get_CONTROLLER(a);
-            if (controller->pause) {
-                ctx->pause = controller;
-                ctx_trigger_freeze(ctx);
-                a = ofpact_next(a);
-            } else {
-                xlate_controller_action(ctx, controller->max_len,
-                                        controller->reason,
-                                        controller->controller_id,
-                                        controller->provider_meter_id,
-                                        controller->userdata,
-                                        controller->userdata_len);
-            }
-            break;
-
-        case OFPACT_ENQUEUE:
-            memset(&wc->masks.skb_priority, 0xff,
-                   sizeof wc->masks.skb_priority);
-            xlate_enqueue_action(ctx, ofpact_get_ENQUEUE(a), last,
-                                 group_bucket_action);
-            break;
-
-        case OFPACT_SET_VLAN_VID:
-            wc->masks.vlans[0].tci |= htons(VLAN_VID_MASK | VLAN_CFI);
-            if (flow->vlans[0].tci & htons(VLAN_CFI) ||
-                ofpact_get_SET_VLAN_VID(a)->push_vlan_if_needed) {
-                if (!flow->vlans[0].tpid) {
-                    flow->vlans[0].tpid = htons(ETH_TYPE_VLAN);
-                }
-                flow->vlans[0].tci &= ~htons(VLAN_VID_MASK);
-                flow->vlans[0].tci |=
-                    (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid) |
-                     htons(VLAN_CFI));
-            }
-            break;
-
-        case OFPACT_SET_VLAN_PCP:
-            wc->masks.vlans[0].tci |= htons(VLAN_PCP_MASK | VLAN_CFI);
-            if (flow->vlans[0].tci & htons(VLAN_CFI) ||
-                ofpact_get_SET_VLAN_PCP(a)->push_vlan_if_needed) {
-                if (!flow->vlans[0].tpid) {
-                    flow->vlans[0].tpid = htons(ETH_TYPE_VLAN);
-                }
-                flow->vlans[0].tci &= ~htons(VLAN_PCP_MASK);
-                flow->vlans[0].tci |=
-                    htons((ofpact_get_SET_VLAN_PCP(a)->vlan_pcp
-                           << VLAN_PCP_SHIFT) | VLAN_CFI);
-            }
-            break;
-
-        case OFPACT_STRIP_VLAN:
-            flow_pop_vlan(flow, wc);
-            break;
-
-        case OFPACT_PUSH_VLAN:
-            flow_push_vlan_uninit(flow, wc);
-            flow->vlans[0].tpid = ofpact_get_PUSH_VLAN(a)->ethertype;
-            flow->vlans[0].tci = htons(VLAN_CFI);
-            break;
-
-        case OFPACT_SET_ETH_SRC:
-            WC_MASK_FIELD(wc, dl_src);
-            flow->dl_src = ofpact_get_SET_ETH_SRC(a)->mac;
-            break;
-
-        case OFPACT_SET_ETH_DST:
-            WC_MASK_FIELD(wc, dl_dst);
-            flow->dl_dst = ofpact_get_SET_ETH_DST(a)->mac;
-            break;
-
-        case OFPACT_SET_IPV4_SRC:
-            if (flow->dl_type == htons(ETH_TYPE_IP)) {
-                memset(&wc->masks.nw_src, 0xff, sizeof wc->masks.nw_src);
-                flow->nw_src = ofpact_get_SET_IPV4_SRC(a)->ipv4;
-            }
-            break;
-
-        case OFPACT_SET_IPV4_DST:
-            if (flow->dl_type == htons(ETH_TYPE_IP)) {
-                memset(&wc->masks.nw_dst, 0xff, sizeof wc->masks.nw_dst);
-                flow->nw_dst = ofpact_get_SET_IPV4_DST(a)->ipv4;
-            }
-            break;
-
-        case OFPACT_SET_IP_DSCP:
-            if (is_ip_any(flow)) {
-                wc->masks.nw_tos |= IP_DSCP_MASK;
-                flow->nw_tos &= ~IP_DSCP_MASK;
-                flow->nw_tos |= ofpact_get_SET_IP_DSCP(a)->dscp;
-            }
-            break;
-
-        case OFPACT_SET_IP_ECN:
-            if (is_ip_any(flow)) {
-                wc->masks.nw_tos |= IP_ECN_MASK;
-                flow->nw_tos &= ~IP_ECN_MASK;
-                flow->nw_tos |= ofpact_get_SET_IP_ECN(a)->ecn;
-            }
-            break;
-
-        case OFPACT_SET_IP_TTL:
-            if (is_ip_any(flow)) {
-                wc->masks.nw_ttl = 0xff;
-                flow->nw_ttl = ofpact_get_SET_IP_TTL(a)->ttl;
-            }
-            break;
-
-        case OFPACT_SET_L4_SRC_PORT:
-            if (is_ip_any(flow) && !(flow->nw_frag & FLOW_NW_FRAG_LATER)) {
-                memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
-                memset(&wc->masks.tp_src, 0xff, sizeof wc->masks.tp_src);
-                flow->tp_src = htons(ofpact_get_SET_L4_SRC_PORT(a)->port);
-            }
-            break;
-
-        case OFPACT_SET_L4_DST_PORT:
-            if (is_ip_any(flow) && !(flow->nw_frag & FLOW_NW_FRAG_LATER)) {
-                memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
-                memset(&wc->masks.tp_dst, 0xff, sizeof wc->masks.tp_dst);
-                flow->tp_dst = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
-            }
-            break;
-
-        case OFPACT_RESUBMIT:
-            /* Freezing cojmplicates resubmit.  Some action in the flow
-             * entry found by resubmit might trigger freezing.  If that
-             * happens, then we do not want to execute the resubmit again after
-             * during thawing, so we want to skip back to the head of the loop
-             * to avoid that, only adding any actions that follow the resubmit
-             * to the frozen actions.
-             */
-            xlate_ofpact_resubmit(ctx, ofpact_get_RESUBMIT(a), last);
-            continue;
-
-        case OFPACT_SET_TUNNEL:
-            flow->tunnel.tun_id = htonll(ofpact_get_SET_TUNNEL(a)->tun_id);
-            break;
-
-        case OFPACT_SET_QUEUE:
-            memset(&wc->masks.skb_priority, 0xff,
-                   sizeof wc->masks.skb_priority);
-            xlate_set_queue_action(ctx, ofpact_get_SET_QUEUE(a)->queue_id);
-            break;
-
-        case OFPACT_POP_QUEUE:
-            memset(&wc->masks.skb_priority, 0xff,
-                   sizeof wc->masks.skb_priority);
-            if (flow->skb_priority != ctx->orig_skb_priority) {
-                flow->skb_priority = ctx->orig_skb_priority;
-                xlate_report(ctx, OFT_DETAIL, "queue = %#"PRIx32,
-                             flow->skb_priority);
-            }
-            break;
-
-        case OFPACT_REG_MOVE:
-            xlate_ofpact_reg_move(ctx, ofpact_get_REG_MOVE(a));
-            break;
-
-        case OFPACT_SET_FIELD:
-            set_field = ofpact_get_SET_FIELD(a);
-            mf = set_field->field;
-
-            /* Set the field only if the packet actually has it. */
-            if (mf_are_prereqs_ok(mf, flow, wc)) {
-                mf_mask_field_masked(mf, ofpact_set_field_mask(set_field), wc);
-                mf_set_flow_value_masked(mf, set_field->value,
-                                         ofpact_set_field_mask(set_field),
-                                         flow);
-            } else {
-                xlate_report(ctx, OFT_WARN,
-                             "unmet prerequisites for %s, set_field ignored",
-                             mf->name);
-
-            }
-            break;
-
-        case OFPACT_STACK_PUSH:
-            nxm_execute_stack_push(ofpact_get_STACK_PUSH(a), flow, wc,
-                                   &ctx->stack);
-            break;
-
-        case OFPACT_STACK_POP:
-            xlate_ofpact_stack_pop(ctx, ofpact_get_STACK_POP(a));
-            break;
-
-        case OFPACT_PUSH_MPLS:
-            compose_mpls_push_action(ctx, ofpact_get_PUSH_MPLS(a));
-            break;
-
-        case OFPACT_POP_MPLS:
-            compose_mpls_pop_action(ctx, ofpact_get_POP_MPLS(a)->ethertype);
-            break;
-
-        case OFPACT_SET_MPLS_LABEL:
-            compose_set_mpls_label_action(
-                ctx, ofpact_get_SET_MPLS_LABEL(a)->label);
-            break;
-
-        case OFPACT_SET_MPLS_TC:
-            compose_set_mpls_tc_action(ctx, ofpact_get_SET_MPLS_TC(a)->tc);
-            break;
-
-        case OFPACT_SET_MPLS_TTL:
-            compose_set_mpls_ttl_action(ctx, ofpact_get_SET_MPLS_TTL(a)->ttl);
-            break;
-
-        case OFPACT_DEC_MPLS_TTL:
-            if (compose_dec_mpls_ttl_action(ctx)) {
-                return;
-            }
-            break;
-
-        case OFPACT_DEC_NSH_TTL:
-            if (compose_dec_nsh_ttl_action(ctx)) {
-                return;
-            }
-            break;
-
-        case OFPACT_DEC_TTL:
-            wc->masks.nw_ttl = 0xff;
-            if (compose_dec_ttl(ctx, ofpact_get_DEC_TTL(a))) {
-                return;
-            }
-            break;
-
-        case OFPACT_NOTE:
-            /* Nothing to do. */
-            break;
-
-        case OFPACT_MULTIPATH:
-            multipath_execute(ofpact_get_MULTIPATH(a), flow, wc);
-            xlate_report_subfield(ctx, &ofpact_get_MULTIPATH(a)->dst);
-            break;
-
-        case OFPACT_BUNDLE:
-            xlate_bundle_action(ctx, ofpact_get_BUNDLE(a), last,
-                                group_bucket_action);
-            break;
-
-        case OFPACT_OUTPUT_REG:
-            xlate_output_reg_action(ctx, ofpact_get_OUTPUT_REG(a), last,
-                    group_bucket_action);
-            break;
-
-        case OFPACT_OUTPUT_TRUNC:
-            xlate_output_trunc_action(ctx, ofpact_get_OUTPUT_TRUNC(a)->port,
-                                ofpact_get_OUTPUT_TRUNC(a)->max_len, last,
-                                group_bucket_action);
-            break;
-
-        case OFPACT_LEARN:
-            xlate_learn_action(ctx, ofpact_get_LEARN(a));
-            break;
-
-        case OFPACT_CONJUNCTION:
-            /* A flow with a "conjunction" action represents part of a special
-             * kind of "set membership match".  Such a flow should not actually
-             * get executed, but it could via, say, a "packet-out", even though
-             * that wouldn't be useful.  Log it to help debugging. */
-            xlate_report_error(ctx, "executing no-op conjunction action");
-            break;
-
         case OFPACT_EXIT:
             ctx->exit = true;
             break;
 
         case OFPACT_UNROLL_XLATE:
-            xlate_ofpact_unroll_xlate(ctx, ofpact_get_UNROLL_XLATE(a));
-            break;
-
-        case OFPACT_FIN_TIMEOUT:
-            memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
-            xlate_fin_timeout(ctx, ofpact_get_FIN_TIMEOUT(a));
-            break;
-
-        case OFPACT_CLEAR_ACTIONS:
-            xlate_report_action_set(ctx, "was");
-            ofpbuf_clear(&ctx->action_set);
-            ctx->xin->flow.actset_output = OFPP_UNSET;
-            ctx->action_set_has_group = false;
-            break;
-
-        case OFPACT_WRITE_ACTIONS:
-            xlate_write_actions(ctx, ofpact_get_WRITE_ACTIONS(a));
-            xlate_report_action_set(ctx, "is");
-            break;
-
-        case OFPACT_WRITE_METADATA:
-            metadata = ofpact_get_WRITE_METADATA(a);
-            flow->metadata &= ~metadata->mask;
-            flow->metadata |= metadata->metadata & metadata->mask;
-            break;
 
         case OFPACT_METER:
             xlate_meter_action(ctx, ofpact_get_METER(a));
@@ -7037,10 +6831,6 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                                do_xlate_actions);
             break;
         }
-
-        case OFPACT_SAMPLE:
-            xlate_sample_action(ctx, ofpact_get_SAMPLE(a));
-            break;
 
         case OFPACT_CLONE:
             compose_clone(ctx, ofpact_get_CLONE(a), last);
@@ -7098,6 +6888,451 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                                    remaining_acts, remaining_acts_len);
             break;
         }
+        }
+
+        /* Check if need to store this and the remaining actions for later
+         * execution. */
+        if (!ctx->error && ctx->exit && ctx_first_frozen_action(ctx)) {
+            freeze_unroll_actions(a, ofpact_end(ofpacts, ofpacts_len), ctx);
+            break;
+        }
+    }
+}
+
+static void
+do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
+                 struct xlate_ctx *ctx, bool is_last_action,
+                 bool group_bucket_action)
+{
+    struct flow_wildcards *wc = ctx->wc;
+    struct flow *flow = &ctx->xin->flow;
+    const struct ofpact *a;
+
+    /* dl_type already in the mask, not set below. */
+
+    if (!ofpacts_len) {
+        xlate_report(ctx, OFT_ACTION, "drop");
+        return;
+    }
+
+    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+        struct ofpact_controller *controller;
+        const struct ofpact_metadata *metadata;
+        const struct ofpact_set_field *set_field;
+        const struct mf_field *mf;
+        bool last = is_last_action && ofpact_last(a, ofpacts, ofpacts_len)
+                    && ctx->action_set.size;
+
+        if (ctx->error) {
+            break;
+        }
+
+        recirc_for_mpls(a, ctx);
+
+        if (ctx->exit) {
+            /* Check if need to store the remaining actions for later
+             * execution. */
+            if (ctx->freezing) {
+                freeze_unroll_actions(a, ofpact_end(ofpacts, ofpacts_len),
+                                      ctx);
+            }
+            break;
+        }
+
+        if (OVS_UNLIKELY(ctx->xin->trace)) {
+            struct ds s = DS_EMPTY_INITIALIZER;
+            struct ofpact_format_params fp = { .s = &s };
+            ofpacts_format(a, OFPACT_ALIGN(a->len), &fp);
+            xlate_report(ctx, OFT_ACTION, "%s", ds_cstr(&s));
+            ds_destroy(&s);
+        }
+
+        switch (a->type) {
+            case OFPACT_OUTPUT:
+                xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
+                                    ofpact_get_OUTPUT(a)->max_len, true, last,
+                                    false, group_bucket_action);
+                break;
+
+            case OFPACT_GROUP:
+                if (xlate_group_action(ctx, ofpact_get_GROUP(a)->group_id, last)) {
+                    /* Group could not be found. */
+
+                    /* XXX: Terminates action list translation, but does not
+                     * terminate the pipeline. */
+                    return;
+                }
+                break;
+
+            case OFPACT_CONTROLLER:
+                controller = ofpact_get_CONTROLLER(a);
+                if (controller->pause) {
+                    ctx->pause = controller;
+                    ctx_trigger_freeze(ctx);
+                    a = ofpact_next(a);
+                } else {
+                    xlate_controller_action(ctx, controller->max_len,
+                                            controller->reason,
+                                            controller->controller_id,
+                                            controller->provider_meter_id,
+                                            controller->userdata,
+                                            controller->userdata_len);
+                }
+                break;
+
+            case OFPACT_ENQUEUE:
+                memset(&wc->masks.skb_priority, 0xff,
+                       sizeof wc->masks.skb_priority);
+                xlate_enqueue_action(ctx, ofpact_get_ENQUEUE(a), last,
+                                     group_bucket_action);
+                break;
+
+            case OFPACT_SET_VLAN_VID:
+                wc->masks.vlans[0].tci |= htons(VLAN_VID_MASK | VLAN_CFI);
+                if (flow->vlans[0].tci & htons(VLAN_CFI) ||
+                    ofpact_get_SET_VLAN_VID(a)->push_vlan_if_needed) {
+                    if (!flow->vlans[0].tpid) {
+                        flow->vlans[0].tpid = htons(ETH_TYPE_VLAN);
+                    }
+                    flow->vlans[0].tci &= ~htons(VLAN_VID_MASK);
+                    flow->vlans[0].tci |=
+                            (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid) |
+                             htons(VLAN_CFI));
+                }
+                break;
+
+            case OFPACT_SET_VLAN_PCP:
+                wc->masks.vlans[0].tci |= htons(VLAN_PCP_MASK | VLAN_CFI);
+                if (flow->vlans[0].tci & htons(VLAN_CFI) ||
+                    ofpact_get_SET_VLAN_PCP(a)->push_vlan_if_needed) {
+                    if (!flow->vlans[0].tpid) {
+                        flow->vlans[0].tpid = htons(ETH_TYPE_VLAN);
+                    }
+                    flow->vlans[0].tci &= ~htons(VLAN_PCP_MASK);
+                    flow->vlans[0].tci |=
+                            htons((ofpact_get_SET_VLAN_PCP(a)->vlan_pcp
+                                    << VLAN_PCP_SHIFT) | VLAN_CFI);
+                }
+                break;
+
+            case OFPACT_STRIP_VLAN:
+                flow_pop_vlan(flow, wc);
+                break;
+
+            case OFPACT_PUSH_VLAN:
+                flow_push_vlan_uninit(flow, wc);
+                flow->vlans[0].tpid = ofpact_get_PUSH_VLAN(a)->ethertype;
+                flow->vlans[0].tci = htons(VLAN_CFI);
+                break;
+
+            case OFPACT_SET_ETH_SRC:
+            WC_MASK_FIELD(wc, dl_src);
+                flow->dl_src = ofpact_get_SET_ETH_SRC(a)->mac;
+                break;
+
+            case OFPACT_SET_ETH_DST:
+            WC_MASK_FIELD(wc, dl_dst);
+                flow->dl_dst = ofpact_get_SET_ETH_DST(a)->mac;
+                break;
+
+            case OFPACT_SET_IPV4_SRC:
+                if (flow->dl_type == htons(ETH_TYPE_IP)) {
+                    memset(&wc->masks.nw_src, 0xff, sizeof wc->masks.nw_src);
+                    flow->nw_src = ofpact_get_SET_IPV4_SRC(a)->ipv4;
+                }
+                break;
+
+            case OFPACT_SET_IPV4_DST:
+                if (flow->dl_type == htons(ETH_TYPE_IP)) {
+                    memset(&wc->masks.nw_dst, 0xff, sizeof wc->masks.nw_dst);
+                    flow->nw_dst = ofpact_get_SET_IPV4_DST(a)->ipv4;
+                }
+                break;
+
+            case OFPACT_SET_IP_DSCP:
+                if (is_ip_any(flow)) {
+                    wc->masks.nw_tos |= IP_DSCP_MASK;
+                    flow->nw_tos &= ~IP_DSCP_MASK;
+                    flow->nw_tos |= ofpact_get_SET_IP_DSCP(a)->dscp;
+                }
+                break;
+
+            case OFPACT_SET_IP_ECN:
+                if (is_ip_any(flow)) {
+                    wc->masks.nw_tos |= IP_ECN_MASK;
+                    flow->nw_tos &= ~IP_ECN_MASK;
+                    flow->nw_tos |= ofpact_get_SET_IP_ECN(a)->ecn;
+                }
+                break;
+
+            case OFPACT_SET_IP_TTL:
+                if (is_ip_any(flow)) {
+                    wc->masks.nw_ttl = 0xff;
+                    flow->nw_ttl = ofpact_get_SET_IP_TTL(a)->ttl;
+                }
+                break;
+
+            case OFPACT_SET_L4_SRC_PORT:
+                if (is_ip_any(flow) && !(flow->nw_frag & FLOW_NW_FRAG_LATER)) {
+                    memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
+                    memset(&wc->masks.tp_src, 0xff, sizeof wc->masks.tp_src);
+                    flow->tp_src = htons(ofpact_get_SET_L4_SRC_PORT(a)->port);
+                }
+                break;
+
+            case OFPACT_SET_L4_DST_PORT:
+                if (is_ip_any(flow) && !(flow->nw_frag & FLOW_NW_FRAG_LATER)) {
+                    memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
+                    memset(&wc->masks.tp_dst, 0xff, sizeof wc->masks.tp_dst);
+                    flow->tp_dst = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
+                }
+                break;
+
+            case OFPACT_RESUBMIT:
+                /* Freezing cojmplicates resubmit.  Some action in the flow
+                 * entry found by resubmit might trigger freezing.  If that
+                 * happens, then we do not want to execute the resubmit again after
+                 * during thawing, so we want to skip back to the head of the loop
+                 * to avoid that, only adding any actions that follow the resubmit
+                 * to the frozen actions.
+                 */
+                xlate_ofpact_resubmit(ctx, ofpact_get_RESUBMIT(a), last);
+                continue;
+
+            case OFPACT_SET_TUNNEL:
+                flow->tunnel.tun_id = htonll(ofpact_get_SET_TUNNEL(a)->tun_id);
+                break;
+
+            case OFPACT_SET_QUEUE:
+                memset(&wc->masks.skb_priority, 0xff,
+                       sizeof wc->masks.skb_priority);
+                xlate_set_queue_action(ctx, ofpact_get_SET_QUEUE(a)->queue_id);
+                break;
+
+            case OFPACT_POP_QUEUE:
+                memset(&wc->masks.skb_priority, 0xff,
+                       sizeof wc->masks.skb_priority);
+                if (flow->skb_priority != ctx->orig_skb_priority) {
+                    flow->skb_priority = ctx->orig_skb_priority;
+                    xlate_report(ctx, OFT_DETAIL, "queue = %#"PRIx32,
+                                 flow->skb_priority);
+                }
+                break;
+
+            case OFPACT_REG_MOVE:
+                xlate_ofpact_reg_move(ctx, ofpact_get_REG_MOVE(a));
+                break;
+
+            case OFPACT_SET_FIELD:
+                set_field = ofpact_get_SET_FIELD(a);
+                mf = set_field->field;
+
+                /* Set the field only if the packet actually has it. */
+                if (mf_are_prereqs_ok(mf, flow, wc)) {
+                    mf_mask_field_masked(mf, ofpact_set_field_mask(set_field), wc);
+                    mf_set_flow_value_masked(mf, set_field->value,
+                                             ofpact_set_field_mask(set_field),
+                                             flow);
+                } else {
+                    xlate_report(ctx, OFT_WARN,
+                                 "unmet prerequisites for %s, set_field ignored",
+                                 mf->name);
+
+                }
+                break;
+
+            case OFPACT_STACK_PUSH:
+                nxm_execute_stack_push(ofpact_get_STACK_PUSH(a), flow, wc,
+                                       &ctx->stack);
+                break;
+
+            case OFPACT_STACK_POP:
+                xlate_ofpact_stack_pop(ctx, ofpact_get_STACK_POP(a));
+                break;
+
+            case OFPACT_PUSH_MPLS:
+                compose_mpls_push_action(ctx, ofpact_get_PUSH_MPLS(a));
+                break;
+
+            case OFPACT_POP_MPLS:
+                compose_mpls_pop_action(ctx, ofpact_get_POP_MPLS(a)->ethertype);
+                break;
+
+            case OFPACT_SET_MPLS_LABEL:
+                compose_set_mpls_label_action(
+                        ctx, ofpact_get_SET_MPLS_LABEL(a)->label);
+                break;
+
+            case OFPACT_SET_MPLS_TC:
+                compose_set_mpls_tc_action(ctx, ofpact_get_SET_MPLS_TC(a)->tc);
+                break;
+
+            case OFPACT_SET_MPLS_TTL:
+                compose_set_mpls_ttl_action(ctx, ofpact_get_SET_MPLS_TTL(a)->ttl);
+                break;
+
+            case OFPACT_DEC_MPLS_TTL:
+                if (compose_dec_mpls_ttl_action(ctx)) {
+                    return;
+                }
+                break;
+
+            case OFPACT_DEC_NSH_TTL:
+                if (compose_dec_nsh_ttl_action(ctx)) {
+                    return;
+                }
+                break;
+
+            case OFPACT_DEC_TTL:
+                wc->masks.nw_ttl = 0xff;
+                if (compose_dec_ttl(ctx, ofpact_get_DEC_TTL(a))) {
+                    return;
+                }
+                break;
+
+            case OFPACT_NOTE:
+                /* Nothing to do. */
+                break;
+
+            case OFPACT_MULTIPATH:
+                multipath_execute(ofpact_get_MULTIPATH(a), flow, wc);
+                xlate_report_subfield(ctx, &ofpact_get_MULTIPATH(a)->dst);
+                break;
+
+            case OFPACT_BUNDLE:
+                xlate_bundle_action(ctx, ofpact_get_BUNDLE(a), last,
+                                    group_bucket_action);
+                break;
+
+            case OFPACT_OUTPUT_REG:
+                xlate_output_reg_action(ctx, ofpact_get_OUTPUT_REG(a), last,
+                                        group_bucket_action);
+                break;
+
+            case OFPACT_OUTPUT_TRUNC:
+                xlate_output_trunc_action(ctx, ofpact_get_OUTPUT_TRUNC(a)->port,
+                                          ofpact_get_OUTPUT_TRUNC(a)->max_len, last,
+                                          group_bucket_action);
+                break;
+
+            case OFPACT_LEARN:
+                xlate_learn_action(ctx, ofpact_get_LEARN(a));
+                break;
+
+            case OFPACT_CONJUNCTION:
+                /* A flow with a "conjunction" action represents part of a special
+                 * kind of "set membership match".  Such a flow should not actually
+                 * get executed, but it could via, say, a "packet-out", even though
+                 * that wouldn't be useful.  Log it to help debugging. */
+                xlate_report_error(ctx, "executing no-op conjunction action");
+                break;
+
+            case OFPACT_EXIT:
+                ctx->exit = true;
+                break;
+
+            case OFPACT_UNROLL_XLATE:
+                xlate_ofpact_unroll_xlate(ctx, ofpact_get_UNROLL_XLATE(a));
+                break;
+
+            case OFPACT_FIN_TIMEOUT:
+                memset(&wc->masks.nw_proto, 0xff, sizeof wc->masks.nw_proto);
+                xlate_fin_timeout(ctx, ofpact_get_FIN_TIMEOUT(a));
+                break;
+
+            case OFPACT_CLEAR_ACTIONS:
+                xlate_report_action_set(ctx, "was");
+                ofpbuf_clear(&ctx->action_set);
+                ctx->xin->flow.actset_output = OFPP_UNSET;
+                ctx->action_set_has_group = false;
+                break;
+
+            case OFPACT_WRITE_ACTIONS:
+                xlate_write_actions(ctx, ofpact_get_WRITE_ACTIONS(a));
+                xlate_report_action_set(ctx, "is");
+                break;
+
+            case OFPACT_WRITE_METADATA:
+                metadata = ofpact_get_WRITE_METADATA(a);
+                flow->metadata &= ~metadata->mask;
+                flow->metadata |= metadata->metadata & metadata->mask;
+                break;
+
+            case OFPACT_METER:
+                xlate_meter_action(ctx, ofpact_get_METER(a));
+                break;
+
+            case OFPACT_GOTO_TABLE: {
+                struct ofpact_goto_table *ogt = ofpact_get_GOTO_TABLE(a);
+
+                ovs_assert(ctx->table_id < ogt->table_id);
+
+                xlate_table_action(ctx, ctx->xin->flow.in_port.ofp_port,
+                                   ogt->table_id, true, true, false, last,
+                                   do_xlate_actions);
+                break;
+            }
+
+            case OFPACT_SAMPLE:
+                xlate_sample_action(ctx, ofpact_get_SAMPLE(a));
+                break;
+
+            case OFPACT_CLONE:
+                compose_clone(ctx, ofpact_get_CLONE(a), last);
+                break;
+
+            case OFPACT_ENCAP:
+                xlate_generic_encap_action(ctx, ofpact_get_ENCAP(a));
+                break;
+
+            case OFPACT_DECAP: {
+                bool recirc_needed =
+                        xlate_generic_decap_action(ctx, ofpact_get_DECAP(a));
+                if (!ctx->error && recirc_needed) {
+                    /* Recirculate for parsing of inner packet. */
+                    ctx_trigger_freeze(ctx);
+                    /* Then continue with next action. */
+                    a = ofpact_next(a);
+                }
+                break;
+            }
+
+            case OFPACT_CT:
+                compose_conntrack_action(ctx, ofpact_get_CT(a), last);
+                break;
+
+            case OFPACT_CT_CLEAR:
+                compose_ct_clear_action(ctx);
+                break;
+
+            case OFPACT_NAT:
+                /* This will be processed by compose_conntrack_action(). */
+                ctx->ct_nat_action = ofpact_get_NAT(a);
+                break;
+
+            case OFPACT_DEBUG_RECIRC:
+                ctx_trigger_freeze(ctx);
+                a = ofpact_next(a);
+                break;
+
+            case OFPACT_DEBUG_SLOW:
+                ctx->xout->slow |= SLOW_ACTION;
+                break;
+
+            case OFPACT_CHECK_PKT_LARGER: {
+                if (last) {
+                    /* If this is last action, then there is no need to
+                     * translate the action. */
+                    break;
+                }
+                const struct ofpact *remaining_acts = ofpact_next(a);
+                size_t remaining_acts_len = ofpact_remaining_len(remaining_acts,
+                                                                 ofpacts,
+                                                                 ofpacts_len);
+                xlate_check_pkt_larger(ctx, ofpact_get_CHECK_PKT_LARGER(a),
+                                       remaining_acts, remaining_acts_len);
+                break;
+            }
         }
 
         /* Check if need to store this and the remaining actions for later
@@ -7679,7 +7914,7 @@ xlate_actions(struct xlate_in *xin, struct xlate_out *xout)
             }
 
             mirror_ingress_packet(&ctx);
-            do_xlate_actions(ofpacts, ofpacts_len, &ctx, true, false);
+            pof_do_xlate_actions(ofpacts, ofpacts_len, &ctx, true, false);
             if (ctx.error) {
                 goto exit;
             }

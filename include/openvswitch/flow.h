@@ -78,6 +78,61 @@ BUILD_ASSERT_DECL(FLOW_MAX_VLAN_HEADERS % 2 == 0);
 /* Legacy maximum VLAN headers */
 #define LEGACY_MAX_VLAN_HEADERS 1
 
+/* zq: to store the In-Band-Telemetry data*/
+struct pof_metadata {
+    uint8_t in_port;            // input_port, 8 bits in pof, 32 bits in openflow
+    uint8_t out_port;           // output port
+    uint8_t pad[2];
+    uint32_t device_id;         // data_path id
+};
+
+struct pof_flow {
+    ovs_be16 field_id[POF_MAX_MATCH_FIELD_NUM];  /*0xffff means metadata,
+                          0x8XXX means from table parameter,
+                          otherwise means from packet data. */
+    ovs_be16 offset[POF_MAX_MATCH_FIELD_NUM];  /*bit unit*/
+    ovs_be16 len[POF_MAX_MATCH_FIELD_NUM];    /*length in bit unit*/
+    uint8_t pad[2][POF_MAX_MATCH_FIELD_NUM];   /*8 bytes aligned*/
+
+    uint8_t value[POF_MAX_MATCH_FIELD_NUM][POF_MAX_FIELD_LENGTH_IN_BYTE];
+    /*Original pof_flow is 192 bytes, we add the following fields to pad pof_flow to flow,
+      which is 584 bytes. */
+    uint8_t mask[POF_MAX_MATCH_FIELD_NUM][POF_MAX_FIELD_LENGTH_IN_BYTE];
+
+    uint8_t flag[POF_MAX_MATCH_FIELD_NUM];  // tsf: indicate the corresponding index for the stored fields to be processed
+    struct pof_metadata telemetry;          // tsf: to store the INT meta_data
+
+    uint8_t pad_to_flow[POF_MAX_MATCH_FIELD_NUM][90];
+};
+
+struct pof_fp_flow {
+    /* Metadata */
+    struct flow_tnl tunnel;     /* Encapsulating tunnel parameters. */
+    ovs_be64 metadata;          /* OpenFlow Metadata. */
+    uint32_t regs[FLOW_N_REGS]; /* Registers. */
+    uint32_t skb_priority;      /* Packet priority for QoS. */
+    uint32_t pkt_mark;          /* Packet mark. */
+    uint32_t dp_hash;           /* Datapath computed hash value. The exact
+                                 * computation is opaque to the user space. */
+    union flow_in_port in_port; /* Input port.*/
+    uint32_t recirc_id;         /* Must be exact match. */
+    uint8_t ct_state;           /* Connection tracking state. */
+    uint8_t ct_nw_proto;        /* CT orig tuple IP protocol. */
+    uint16_t ct_zone;           /* Connection tracking zone. */
+    uint32_t ct_mark;           /* Connection mark.*/
+    ovs_be32 packet_type;       /* OpenFlow packet type. */
+    ovs_u128 ct_label;          /* Connection label. */
+    uint32_t conj_id;           /* Conjunction ID. */
+    ofp_port_t actset_output;   /* Output port in action set. */
+    uint8_t have_sel_group_action;  /* zq: Used to tell packets to execute select Group action*/
+    uint8_t sel_int_action;     /* zq: Used to tell packets to execute INT add_field action. */
+    uint8_t pad1[2];            /* Pad to 64 bits. */
+
+    /* L2, Order the same as in the Ethernet header! (64-bit aligned) */
+    ovs_be64 pof_normal[14]; /* Registers. */
+    /*ovs_be32 ipv6_label;         IPv6 flow label. */
+};
+
 /*
  * A flow in the network.
  *
@@ -85,7 +140,7 @@ BUILD_ASSERT_DECL(FLOW_MAX_VLAN_HEADERS % 2 == 0);
  * zeroed.  Helps also in keeping unused fields (such as mutually exclusive
  * IPv4 and IPv6 addresses) zeroed out.
  *
- * The meaning of 'in_port' is context-dependent.  In most cases, it is a
+ * The meaning of 'in_port' is context-dependent  In most cases, it is a
  * 16-bit OpenFlow 1.0 port number.  In the software datapath interface (dpif)
  * layer and its implementations (e.g. dpif-netlink, dpif-netdev), it is
  * instead a 32-bit datapath port number.
@@ -116,6 +171,8 @@ struct flow {
     ovs_u128 ct_label;          /* Connection label. */
     uint32_t conj_id;           /* Conjunction ID. */
     ofp_port_t actset_output;   /* Output port in action set. */
+    uint8_t have_sel_group_action;  /* zq: Used to tell packets to execute select Group action*/
+    uint8_t sel_int_action;     /* zq: Used to tell packets to execute INT add_field action. */
 
     /* L2, Order the same as in the Ethernet header! (64-bit aligned) */
     struct eth_addr dl_dst;     /* Ethernet destination address. */
@@ -196,6 +253,12 @@ BUILD_ASSERT_DECL(FLOW_SEGMENT_3_ENDS_AT < sizeof(struct flow));
  * corresponding bit of the flow is wildcarded (need not match). */
 struct flow_wildcards {
     struct flow masks;
+};
+struct pof_flow_wildcards {
+    struct pof_flow masks;
+};
+struct pof_fp_flow_wildcards {
+    struct pof_fp_flow masks;
 };
 
 #define WC_MASK_FIELD(WC, FIELD) \

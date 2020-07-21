@@ -5962,7 +5962,10 @@ ovs_to_odp_frag(uint8_t nw_frag, bool is_mask)
 }
 
 static void get_ethernet_key(const struct flow *, struct ovs_key_ethernet *);
+static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int);
+static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int);
 static void put_ethernet_key(const struct ovs_key_ethernet *, struct flow *);
+static void put_pof_add_field_key(const struct ovs_key_add_field *, struct pof_flow *, int);
 static void get_ipv4_key(const struct flow *, struct ovs_key_ipv4 *,
                          bool is_mask);
 static void put_ipv4_key(const struct ovs_key_ipv4 *, struct flow *,
@@ -7597,6 +7600,36 @@ keycmp_mask(const void *key0, const void *key1,
 }
 
 static bool
+pof_commit(enum ovs_key_attr attr, bool use_masked_set,
+       const void *key, void *base, void *mask, size_t size,
+       struct ofpbuf *odp_actions, uint8_t flag)
+{
+    if (flag) {
+        bool fully_masked = odp_mask_is_exact(attr, mask, size);
+
+        if (use_masked_set && !fully_masked) {
+            VLOG_INFO("++++++zq pof_commit: commit_masked_set_action/fully_masked = %d", fully_masked);
+            commit_masked_set_action(odp_actions, attr, key, mask, size);
+        } else {
+            if (!fully_masked) {
+                memset(mask, 0xff, size);
+            }
+            commit_set_action(odp_actions, attr, key, size);
+        }
+        memcpy(base, key, size);
+        return true;
+    } else {
+        /* Mask bits are set when we have either read or set the corresponding
+         * values.  Masked bits will be exact-matched, no need to set them
+         * if the value did not actually change. */
+        return false;
+        }
+
+
+}
+
+
+static bool
 commit(enum ovs_key_attr attr, bool use_masked_set,
        const void *key, void *base, void *mask, size_t size,
        struct offsetof_sizeof *offsetof_sizeof_arr,
@@ -7635,6 +7668,134 @@ put_ethernet_key(const struct ovs_key_ethernet *eth, struct flow *flow)
 {
     flow->dl_src = eth->eth_src;
     flow->dl_dst = eth->eth_dst;
+}
+
+static void
+commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
+                            struct ofpbuf *odp_actions,
+                            struct flow_wildcards *wc,
+                            bool use_masked, int index)
+{
+    struct ovs_key_add_field key, base, mask;
+
+    struct pof_flow * pflow = flow;
+    struct pof_flow * pbase = base_flow;
+
+    get_pof_add_field_key(pflow, &key, index);
+    get_pof_add_field_key(pbase, &base, index);
+    use_masked = true;
+    get_pof_add_field_mask(pflow, &mask, index);
+
+    VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before pof_commit");
+    if (pof_commit(OVS_KEY_ATTR_ADD_FIELD, use_masked,
+                   &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
+        /*VLOG_INFO("+++++++++++tsf commit_pof_add_field_action: after pof_commit");*/
+        put_pof_add_field_key(&base, base_flow, index);
+        put_pof_add_field_key(&mask, &wc->masks, index);
+    }
+}
+
+static void
+get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+    VLOG_INFO("++++++tsf get_add_field_key: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+                    eth->field_id, eth->len, eth->offset);
+
+    /* tsf: if field_id equals 0xffff, then it's add INT fields, whose data comes from pof_flow->pof_metadata.
+     *      otherwise, ovs should add static fields which are from controller.
+     * */
+    if (eth->field_id != 0xffff) {  // add static fields which come from controller
+        for (int i = 0; i < eth->len; i++) {
+            eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
+            VLOG_INFO("++++++tsf get_add_pof_field_key:  eth->value[%d]=%d", i, eth->value[i]);
+        }
+    } else {   // add INT fields which come from ovs, value[0] stores the INT intent , zq: run here
+        eth->value[0] = flow->value[index][0];
+        eth->device_id = flow->telemetry.device_id;
+        eth->in_port = flow->telemetry.in_port;
+        eth->out_port = flow->telemetry.out_port;
+        VLOG_INFO("++++++tsf get_add_field_key:  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
+                eth->value[0], eth->device_id, eth->in_port, eth->out_port);
+    }
+}
+
+static void
+get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+    VLOG_INFO("++++++tsf get_add_field_mask: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+                    eth->field_id, eth->len, eth->offset);
+
+    /* tsf: if field_id equals 0xffff, then it's add INT fields, whose data comes from pof_flow->pof_metadata.
+     *      otherwise, ovs should add static fields which are from controller.
+     * */
+    if (eth->field_id != 0xffff) {  // add static fields which come from controller
+        for (int i = 0; i < eth->len; i++) {
+            eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
+            VLOG_INFO("++++++tsf get_add_field_key(from controller):  eth->value[%d]=%d", i, eth->value[i]);
+        }
+    } else {   // add INT fields which come from ovs, value[0] stores the INT intent
+        eth->value[0] = flow->value[index][0];
+        eth->device_id = flow->telemetry.device_id;
+        eth->in_port = flow->telemetry.in_port;
+        eth->out_port = flow->telemetry.out_port;
+        VLOG_INFO("++++++tsf get_add_field_key(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
+                  eth->value[0], eth->device_id, eth->in_port, eth->out_port);
+    }
+}
+
+static void
+commit_pof_action(const struct flow *flow, struct flow *base_flow,
+                  struct ofpbuf *odp_actions,
+                  struct flow_wildcards *wc,
+                  bool use_masked) {
+    struct pof_flow *pflow = flow;
+
+    uint8_t action_flag = 0;
+    int i = 0;     // tsf: pflow->flag[8], so i=[0,8), and `i` tells where the fields store
+
+    while (i < 8) { //8 is the num of action
+        action_flag = pflow->flag[i];
+        VLOG_INFO("++++++zq commit_pof_action: action_flag[%d]=%d", i, action_flag);
+
+        switch (action_flag) {
+
+//            case OFPACT_SET_FIELD:      // flag == 7
+//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_set_field_action.");*/
+//                commit_pof_set_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+//                break;
+//
+//            case OFPACT_MODIFY_FIELD:    // flag == 8
+//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_modify_field_action.");*/
+//                commit_pof_modify_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+//                break;
+
+            case OFPACT_ADD_FIELD:       // flag == 9
+                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_add_field_action.");*/
+                commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+                break;
+
+//            case OFPACT_DELETE_FIELD:    // flag == 10
+//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_delete_field_action.");*/
+//                commit_pof_delete_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+//                break;
+        }
+
+        i++;
+
+        /** tsf: skip unnecessary loops
+         * */
+        if (pflow->flag[i] == 0x00) {
+            VLOG_INFO("pof_flow flag == 0x00 skip unnecessary loops");
+            return;
+        }
+
+    }
 }
 
 static void
@@ -8450,25 +8611,28 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
     enum slow_path_reason slow1, slow2;
     bool mpls_done = false;
 
-    commit_encap_decap_action(flow, base, odp_actions, wc,
-                              pending_encap, pending_decap, encap_data);
-    commit_set_ether_action(flow, base, odp_actions, wc, use_masked);
-    /* Make packet a non-MPLS packet before committing L3/4 actions,
-     * which would otherwise do nothing. */
-    if (eth_type_mpls(base->dl_type) && !eth_type_mpls(flow->dl_type)) {
-        commit_mpls_action(flow, base, odp_actions);
-        mpls_done = true;
-    }
-    commit_set_nsh_action(flow, base, odp_actions, wc, use_masked);
-    slow1 = commit_set_nw_action(flow, base, odp_actions, wc, use_masked);
-    commit_set_port_action(flow, base, odp_actions, wc, use_masked);
-    slow2 = commit_set_icmp_action(flow, base, odp_actions, wc);
-    if (!mpls_done) {
-        commit_mpls_action(flow, base, odp_actions);
-    }
-    commit_vlan_action(flow, base, odp_actions, wc);
-    commit_set_priority_action(flow, base, odp_actions, wc, use_masked);
-    commit_set_pkt_mark_action(flow, base, odp_actions, wc, use_masked);
+    commit_pof_action(flow, base, odp_actions, wc, use_masked);
 
-    return slow1 ? slow1 : slow2;
+//    commit_encap_decap_action(flow, base, odp_actions, wc,
+//                              pending_encap, pending_decap, encap_data);
+//    commit_set_ether_action(flow, base, odp_actions, wc, use_masked);
+//    /* Make packet a non-MPLS packet before committing L3/4 actions,
+//     * which would otherwise do nothing. */
+//    if (eth_type_mpls(base->dl_type) && !eth_type_mpls(flow->dl_type)) {
+//        commit_mpls_action(flow, base, odp_actions);
+//        mpls_done = true;
+//    }
+//    commit_set_nsh_action(flow, base, odp_actions, wc, use_masked);
+//    slow1 = commit_set_nw_action(flow, base, odp_actions, wc, use_masked);
+//    commit_set_port_action(flow, base, odp_actions, wc, use_masked);
+//    slow2 = commit_set_icmp_action(flow, base, odp_actions, wc);
+//    if (!mpls_done) {
+//        commit_mpls_action(flow, base, odp_actions);
+//    }
+//    commit_vlan_action(flow, base, odp_actions, wc);
+    commit_set_priority_action(flow, base, odp_actions, wc, use_masked);
+//    commit_set_pkt_mark_action(flow, base, odp_actions, wc, use_masked);
+
+//    return slow1 ? slow1 : slow2;
+    return 0;
 }

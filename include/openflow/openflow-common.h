@@ -118,11 +118,44 @@ enum ofp_version {
 #define OFP_PORT  6653
 
 #define OFP_DEFAULT_MISS_SEND_LEN   128
+/*added by zq*/
+#define POF_NAME_MAX_LENGTH   64
+#define POF_MAX_MATCH_FIELD_NUM 8
+#define POF_MAX_FIELD_LENGTH_IN_BYTE 16
+/*Define the max instruction length in unit of byte.(8 + POF_MAX_ACTION_NUMBER_PER_INSTRUCTION * (POF_MAX_ACTION_LENGTH + 4))*/
+#define POF_MAX_INSTRUCTION_LENGTH  296
+/*Define the max action number in one instruction.*/
+#define POF_MAX_ACTION_NUMBER_PER_INSTRUCTION 6
+/*Define the max action length in unit of byte.*/
+#define POF_MAX_ACTION_LENGTH 48
+/* Define the max bucket number in one group. @tsf */
+#define POF_MAX_BUCKET_NUMBER_PER_GROUP 6
+/* Define the max action number in one bucket. @tsf */
+#define POF_MAX_ACTION_NUMBER_PER_BUCKET 6
+/* Define the max action number in one group. @tsf */
+#define POF_MAX_ACTION_NUMBER_PER_GROUP 4
+
+/* Define value type in instructions and actions. */
+#define POFVT_IMMEDIATE_NUM 0   /* Immediate value. */
+#define POFVT_FIELD         1   /* packet/metadata field. */
+
+/* Describe the pof action struct. @tsf. */
+struct pof_action {
+    ovs_be16 type;
+    ovs_be16 len;
+    uint8_t action_data[44];
+};
+OFP_ASSERT(sizeof(struct pof_action) == 48);
 
 /* Values below this cutoff are 802.3 packets and the two bytes
  * following MAC addresses are used as a frame length.  Otherwise, the
  * two bytes are used as the Ethernet type.
  */
+/* Left shift. */
+#define POF_MOVE_BIT_LEFT(x,n)              ((x) << (n))
+
+/* Right shift. */
+#define POF_MOVE_BIT_RIGHT(x,n)             ((x) >> (n))
 #define OFP_DL_TYPE_ETH2_CUTOFF   0x0600
 
 /* Value of dl_type to indicate that the frame does not include an
