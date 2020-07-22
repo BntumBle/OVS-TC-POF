@@ -180,6 +180,9 @@ enum ofpraw {
     /* OFPT 1.4+ (12): struct ofp_port_status, struct ofp14_port, uint8_t[8][]. */
     OFPRAW_OFPT14_PORT_STATUS,
 
+    /* OFPT 1.0+ (13): struct ofp_flow_table_stats. */
+    OFPRAW_OFPT_RESOURCE_REPORT,
+
     /* OFPT 1.0 (13): struct ofp10_packet_out, uint8_t[]. */
     OFPRAW_OFPT10_PACKET_OUT,
     /* OFPT 1.1-1.4 (13): struct ofp11_packet_out, uint8_t[]. */
@@ -589,6 +592,7 @@ enum ofptype {
     OFPTYPE_PORT_STATUS,         /* OFPRAW_OFPT10_PORT_STATUS.
                                   * OFPRAW_OFPT11_PORT_STATUS.
                                   * OFPRAW_OFPT14_PORT_STATUS. */
+    OFPTYPE_RESOURCE_REPORT,     /* OFPRAW_OFPT_RESOURCE_REPORT. */
 
     /* Controller command messages. */
     OFPTYPE_PACKET_OUT,          /* OFPRAW_OFPT10_PACKET_OUT.

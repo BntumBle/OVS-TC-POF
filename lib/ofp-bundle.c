@@ -223,6 +223,7 @@ ofputil_is_bundlable(enum ofptype type)
     case OFPTYPE_FEATURES_REQUEST:
     case OFPTYPE_GET_CONFIG_REQUEST:
     case OFPTYPE_SET_CONFIG:
+    case OFPTYPE_RESOURCE_REPORT:
     case OFPTYPE_BARRIER_REQUEST:
     case OFPTYPE_ROLE_REQUEST:
     case OFPTYPE_ECHO_REPLY:

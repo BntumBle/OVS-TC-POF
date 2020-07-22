@@ -208,11 +208,12 @@ enum ofp_config_flags {
 
 /* Switch configuration. */
 struct ofp_switch_config {
+    ovs_be32 dev_id;
     ovs_be16 flags;             /* OFPC_* flags. */
     ovs_be16 miss_send_len;     /* Max bytes of new flow that datapath should
                                    send to the controller. */
 };
-OFP_ASSERT(sizeof(struct ofp_switch_config) == 4);
+OFP_ASSERT(sizeof(struct ofp_switch_config) == 8);
 
 
 /* Common flags to indicate behavior of the physical port.  These flags are
@@ -431,6 +432,31 @@ struct ofp_desc_stats {
 };
 OFP_ASSERT(sizeof(struct ofp_desc_stats) == 1056);
 
+/*zq*/
+struct pof_table_resource_desc {
+    ovs_be32 device_id;
+    uint8_t  type; /*table type: MM or EM or LPM */
+    uint8_t  tbl_num; /*table number*/
+    ovs_be16 key_len;   /*key length*/
+
+    ovs_be32 total_size; /*the  total number of EM entry*/
+    uint8_t pad[4];   /*8 bytes aligned*/
+};
+OFP_ASSERT(sizeof(struct pof_table_resource_desc) == 16);
+
+/* +++zq  Body of reply to OFPST_DESC request.. */
+struct ofp_flow_table_stats {
+    uint8_t resourceType;
+    uint8_t pad;    /* 8 bytes aligned. */
+    ovs_be16 slotID;
+    ovs_be32 counter_num; /*Counter number*/
+    ovs_be32 meter_num; /*Meter number*/
+    ovs_be32 group_num; /*Group number*/
+
+    struct pof_table_resource_desc tbl_rsc_desc[4];/*All table resource information*/
+};
+OFP_ASSERT(sizeof(struct ofp_flow_table_stats) == 80);
+
 /* Reply to OFPST_AGGREGATE request. */
 struct ofp_aggregate_stats_reply {
     ovs_32aligned_be64 packet_count; /* Number of packets in flows. */
@@ -439,6 +465,8 @@ struct ofp_aggregate_stats_reply {
     uint8_t pad[4];           /* Align to 64 bits. */
 };
 OFP_ASSERT(sizeof(struct ofp_aggregate_stats_reply) == 24);
+
+
 
 /* The match type indicates the match structure (set of fields that compose the
  * match) in use. The match type is placed in the type field at the beginning

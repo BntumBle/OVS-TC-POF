@@ -1010,6 +1010,9 @@ ofp_to_string__(const struct ofp_header *oh,
     case OFPTYPE_GET_CONFIG_REQUEST:
         break;
 
+    case OFPTYPE_RESOURCE_REPORT:
+        break;
+
     case OFPTYPE_GET_CONFIG_REPLY:
         return ofp_print_get_config_reply(string, oh);
 

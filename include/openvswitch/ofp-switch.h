@@ -70,6 +70,8 @@ enum ofperr ofputil_pull_switch_features(struct ofpbuf *,
 struct ofpbuf *ofputil_encode_switch_features(
     const struct ofputil_switch_features *, enum ofputil_protocol,
     ovs_be32 xid);
+struct ofpbuf * ofputil_encode_flow_table_resource(enum ofputil_protocol protocol,
+                                                   ovs_be32 xid);
 void ofputil_put_switch_features_port(const struct ofputil_phy_port *,
                                       struct ofpbuf *);
 void ofputil_switch_features_format(struct ds *,
@@ -91,6 +93,7 @@ bool ofputil_frag_handling_from_string(const char *,
 struct ofputil_switch_config {
     /* Fragment handling. */
     enum ofputil_frag_handling frag;
+    uint32_t dev_id;
 
     /* 0: Do not send packet to controller when decrementing invalid IP TTL.
      * 1: Do send packet to controller when decrementing invalid IP TTL.

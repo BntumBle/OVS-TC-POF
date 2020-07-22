@@ -142,6 +142,31 @@ ofputil_switch_features_has_ports(struct ofpbuf *b)
     return false;
 }
 
+/*zq*/
+struct ofpbuf *
+ofputil_encode_flow_table_resource(enum ofputil_protocol protocol, ovs_be32 xid)
+{
+    enum ofp_version version;
+    enum ofpraw raw;
+    struct ofp_flow_table_stats *ofts;
+    struct ofpbuf *msg;
+
+    version = ofputil_protocol_to_ofp_version(protocol);
+    raw = OFPRAW_OFPT_RESOURCE_REPORT;
+    msg = ofpraw_alloc_xid(raw, version, xid, 0);/*ofpraw_alloc_stats_reply(oh, 0);*/
+    ofts = ofpbuf_put_zeros(msg, sizeof *ofts);
+    ofts->counter_num = htonl((uint32_t)512);
+    ofts->group_num = htonl((uint32_t)1024);
+    ofts->meter_num = htonl((uint32_t)1024);
+    ofts->resourceType = 0;
+    ofts->slotID = htons((uint16_t)0);
+    ofts->tbl_rsc_desc[0].type=0;
+    ofts->tbl_rsc_desc[1].type=1;
+    ofts->tbl_rsc_desc[2].type=2;
+    ofts->tbl_rsc_desc[3].type=3;
+    return msg;
+}
+
 /* Returns a buffer owned by the caller that encodes 'features' in the format
  * required by 'protocol' with the given 'xid'.  The caller should append port
  * information to the buffer with subsequent calls to

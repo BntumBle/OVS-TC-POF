@@ -3445,7 +3445,22 @@ handle_features_request(struct ofconn *ofconn, const struct ofp_header *oh)
     return 0;
 }
 
-static enum ofperr
+/*zq*/
+static void
+handle_flow_table_resource(struct ofconn *ofconn, const struct ofp_header *oh)
+{
+    struct ofpbuf *msg;
+
+    msg = ofputil_encode_flow_table_resource(ofconn_get_protocol(ofconn), oh->xid);
+    ofconn_send_reply(ofconn, msg);
+}/*zq*/
+
+/*zq*/
+
+
+
+
+static void /*enum ofperr*/
 handle_get_config_request(struct ofconn *ofconn, const struct ofp_header *oh)
 {
     struct ofputil_switch_config config;
@@ -3456,7 +3471,7 @@ handle_get_config_request(struct ofconn *ofconn, const struct ofp_header *oh)
 
     ofconn_send_reply(ofconn, ofputil_encode_get_config_reply(oh, &config));
 
-    return 0;
+    /*return 0;zq*/
 }
 
 static enum ofperr
@@ -8490,7 +8505,9 @@ handle_single_part_openflow(struct ofconn *ofconn, const struct ofp_header *oh,
         return handle_features_request(ofconn, oh);
 
     case OFPTYPE_GET_CONFIG_REQUEST:
-        return handle_get_config_request(ofconn, oh);
+        handle_get_config_request(ofconn, oh);
+        handle_flow_table_resource(ofconn, oh);
+        return handle_port_status(ofconn, oh);
 
     case OFPTYPE_SET_CONFIG:
         return handle_set_config(ofconn, oh);
@@ -8626,6 +8643,7 @@ handle_single_part_openflow(struct ofconn *ofconn, const struct ofp_header *oh,
     case OFPTYPE_ERROR:
     case OFPTYPE_FEATURES_REPLY:
     case OFPTYPE_GET_CONFIG_REPLY:
+    case OFPTYPE_RESOURCE_REPORT:
     case OFPTYPE_PACKET_IN:
     case OFPTYPE_FLOW_REMOVED:
     case OFPTYPE_PORT_STATUS:
