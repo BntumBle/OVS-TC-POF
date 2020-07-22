@@ -3456,9 +3456,36 @@ handle_flow_table_resource(struct ofconn *ofconn, const struct ofp_header *oh)
 }/*zq*/
 
 /*zq*/
+static enum ofperr
+handle_port_status(struct ofconn *ofconn, const struct ofp_header *oh)  /*sqy*/
+{
+    struct ofproto *p = ofconn_get_ofproto(ofconn);
+    struct ofproto_port_dump dump;
+    struct ofproto_port ofproto_port;
+    int error = 0; /*zq*/
 
+    VLOG_INFO("++++++++zq dpid:%016"PRIx64", dp_name:%s", p->datapath_id, p->name);
+    OFPROTO_PORT_FOR_EACH (&ofproto_port, &dump, p) {
+        const char *name = ofproto_port.name;
+        VLOG_INFO_RL(&rl, "%s:  %s +++zq",
+                     p->name, name);
+        struct ofputil_phy_port pp;
+        struct netdev *netdev;
+        error = ofport_open(p, &ofproto_port, &pp, &netdev); /*zq*/
 
-
+        if (netdev) {
+            /* XXX Should limit the number of queued port status change messages. */
+            struct ofputil_port_status ps;
+            ps.reason = OFPPR_ADD;
+            ps.desc = pp;
+            struct ofpbuf *msg;
+            msg = ofputil_encode_port_status_pof(&ps, ofconn_get_protocol(ofconn), oh->xid);
+            ofconn_send_reply(ofconn, msg);
+        }
+    }
+    VLOG_INFO("++++++++zq handle_port_status finished");
+    return 0;
+}/*zq*/
 
 static void /*enum ofperr*/
 handle_get_config_request(struct ofconn *ofconn, const struct ofp_header *oh)

@@ -128,6 +128,8 @@ enum ofperr ofputil_decode_port_status(const struct ofp_header *,
                                        struct ofputil_port_status *);
 struct ofpbuf *ofputil_encode_port_status(const struct ofputil_port_status *,
                                           enum ofputil_protocol);
+struct ofpbuf *ofputil_encode_port_status_pof(const struct ofputil_port_status *,
+                                              enum ofputil_protocol, ovs_be32 xid);
 void ofputil_port_status_format(struct ds *,
                                 const struct ofputil_port_status *);
 
