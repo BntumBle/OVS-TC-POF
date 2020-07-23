@@ -6746,15 +6746,15 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                                 false, group_bucket_action);
             break;
 
-        case OFPACT_DROP:    /* zq: add OFPACT_DROP in #define OFPACTS */
-            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_DROP");
-            /* no operation means to drop */
-            drop = ofpact_get_DROP(a);
-            /*VLOG_INFO("action_drop has been done! The drop reason is %d.", drop->reason_code);*/
-            break;
+//        case OFPACT_DROP:    /* zq: add OFPACT_DROP in #define OFPACTS */
+//            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_DROP");
+//            /* no operation means to drop */
+//            drop = ofpact_get_DROP(a);
+//            /*VLOG_INFO("action_drop has been done! The drop reason is %d.", drop->reason_code);*/
+//            break;
 
         case OFPACT_ADD_FIELD: {
-            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);*/
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);
             add_field = ofpact_get_ADD_FIELD(a);
 
             flow->field_id[action_num] = htons(add_field->tag_id);

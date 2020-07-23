@@ -7750,6 +7750,29 @@ get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *et
 }
 
 static void
+put_pof_add_field_key(const struct ovs_key_add_field *eth, struct pof_flow *flow, int index)
+{
+    flow->field_id[index] =htons(eth->field_id);
+    flow->len[index] = htons(eth->len);
+    flow->offset[index] = htons(eth->offset);
+
+    /* tsf: if field_id equals 0xffff, then it's add INT fields, whose data comes from pof_flow->pof_metadata.
+     *      otherwise, ovs should add static fields which are from controller.
+     * */
+    if (eth->field_id != 0xffff) {    // add static fields come from controller
+        for (int i = 0; i < eth->len; i++) {
+            flow->value[index][i] = eth->value[i];
+            /*VLOG_INFO("++++++tsf put_add_field_key:eth->value[%d]=%d",i, eth->value[i]);*/
+        }
+    } else {  // add INT fields come from ovs
+        flow->value[index][0] = eth->value[0];
+        flow->telemetry.device_id = eth->device_id;
+        flow->telemetry.in_port = eth->in_port;
+        flow->telemetry.out_port = eth->out_port;
+    }
+}
+
+static void
 commit_pof_action(const struct flow *flow, struct flow *base_flow,
                   struct ofpbuf *odp_actions,
                   struct flow_wildcards *wc,

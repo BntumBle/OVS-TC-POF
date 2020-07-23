@@ -77,10 +77,10 @@ union flow_vlan_hdr {
         ovs_be16 tci;
     };
 };
-#define OFP_ASSERT(EXPR)                                                \
+/*#define OFP_ASSERT(EXPR)                                                \
         extern int (*build_assert(void))[ sizeof(union {               \
                     unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]
-OFP_ASSERT(sizeof(union flow_vlan_hdr) == 4);
+OFP_ASSERT(sizeof(union flow_vlan_hdr) == 4);*/
 
 struct ovs_key_nsh {
     uint8_t flags;
@@ -90,10 +90,10 @@ struct ovs_key_nsh {
     ovs_be32 path_hdr;
     ovs_be32 context[4];
 };
-#define OFP_ASSERT(EXPR)                                                \
+/*#define OFP_ASSERT(EXPR)                                                \
         extern int (*build_assert(void))[ sizeof(struct {               \
                     unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]
-OFP_ASSERT(sizeof(struct ovs_key_nsh) == 24);
+OFP_ASSERT(sizeof(struct ovs_key_nsh) == 24);*/
 
 /* NSH flags */
 #define FLOW_NSH_F_OAM (1 << 0)

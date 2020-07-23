@@ -104,10 +104,10 @@ struct pof_flow {
 
     uint8_t pad_to_flow[POF_MAX_MATCH_FIELD_NUM][43];
 };
-#define OFP_ASSERT(EXPR)                                                \
+/*#define OFP_ASSERT(EXPR)                                                \
         extern int (*build_assert(void))[ sizeof(struct {               \
                     unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]
-OFP_ASSERT(sizeof(struct pof_flow) == 680);/*zq:check the size of struct pof_flow*/
+OFP_ASSERT(sizeof(struct pof_flow) == 680); zq:check the size of struct pof_flow*/
 
 struct pof_fp_flow {
     /* Metadata */
@@ -175,8 +175,8 @@ struct flow {
     ovs_u128 ct_label;          /* Connection label. */
     uint32_t conj_id;           /* Conjunction ID. */
     ofp_port_t actset_output;   /* Output port in action set. */
-    uint8_t have_sel_group_action;  /* zq: Used to tell packets to execute select Group action*/
-    uint8_t sel_int_action;     /* zq: Used to tell packets to execute INT add_field action. */
+//    uint8_t have_sel_group_action;  /* zq: Used to tell packets to execute select Group action*/
+//    uint8_t sel_int_action;     /* zq: Used to tell packets to execute INT add_field action. */
 
     /* L2, Order the same as in the Ethernet header! (64-bit aligned) */
     struct eth_addr dl_dst;     /* Ethernet destination address. */
@@ -220,12 +220,12 @@ struct flow {
                                  * Keep last for BUILD_ASSERT_DECL below. */
     ovs_be32 pad3;              /* Pad to 64 bits. */
 };
-OFP_ASSERT(sizeof(struct flow) == 680); /*zq:size of struct flow */
+//OFP_ASSERT(sizeof(struct flow) == 672); /*zq:size of struct flow */
 BUILD_ASSERT_DECL(sizeof(struct flow) % sizeof(uint64_t) == 0);
 BUILD_ASSERT_DECL(sizeof(struct flow_tnl) % sizeof(uint64_t) == 0);
 BUILD_ASSERT_DECL(sizeof(struct ovs_key_nsh) % sizeof(uint64_t) == 0);
 
-#define FLOW_U64S (sizeof(struct flow) / sizeof(uint64_t))
+#define FLOW_U64S (sizeof(struct pof_flow) / sizeof(uint64_t))
 
 /* Remember to update FLOW_WC_SEQ when changing 'struct flow'. */
 BUILD_ASSERT_DECL(offsetof(struct flow, igmp_group_ip4) + sizeof(uint32_t)

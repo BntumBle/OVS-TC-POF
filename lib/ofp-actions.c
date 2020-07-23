@@ -138,6 +138,12 @@ enum ofp_raw_action_type {
     /* OF1.1+(0): struct ofp11_action_output. */
     OFPAT_RAW11_OUTPUT,
 
+    /* OF1.0+(4): struct ofp10_action_add_field. */
+    OFPAT_RAW10_ADD_FIELD,
+
+    /* OF1.0+(5): struct ofp10_action_delete_field. */
+    OFPAT_RAW10_DELETE_FIELD,
+
     /* OF1.0(1): uint16_t. */
     OFPAT_RAW10_SET_VLAN_VID,
     /* OF1.0(2): uint8_t. */
@@ -164,15 +170,15 @@ enum ofp_raw_action_type {
     /* OF1.1+(18): void. */
     OFPAT_RAW11_POP_VLAN,
 
-    /* OF1.0(4), OF1.1(3), OF1.2+(3) is deprecated (use Set-Field): struct
+    /* OF1.0(44), OF1.1(3), OF1.2+(3) is deprecated (use Set-Field): struct
      * ofp_action_dl_addr. */
     OFPAT_RAW_SET_DL_SRC,
 
-    /* OF1.0(5), OF1.1(4), OF1.2+(4) is deprecated (use Set-Field): struct
+    /* OF1.0(55), OF1.1(44), OF1.2+(44) is deprecated (use Set-Field): struct
      * ofp_action_dl_addr. */
     OFPAT_RAW_SET_DL_DST,
 
-    /* OF1.0(6), OF1.1(5), OF1.2+(5) is deprecated (use Set-Field):
+    /* OF1.0(6), OF1.1(55), OF1.2+(55) is deprecated (use Set-Field):
      * ovs_be32. */
     OFPAT_RAW_SET_NW_SRC,
 
@@ -470,6 +476,8 @@ ofpact_next_flattened(const struct ofpact *ofpact)
     case OFPACT_STACK_PUSH:
     case OFPACT_STACK_POP:
     case OFPACT_DEC_TTL:
+    case OFPACT_ADD_FIELD:  /* zq */
+    case OFPACT_DELETE_FIELD: /* zq */
     case OFPACT_SET_MPLS_LABEL:
     case OFPACT_SET_MPLS_TC:
     case OFPACT_SET_MPLS_TTL:
@@ -711,6 +719,285 @@ check_OUTPUT(const struct ofpact_output *a,
     return ofpact_check_output_port(a->port, cp->max_ports);
 }
 
+/*zq:add field actions*/
+/* zq: Action structure for OFPAT_RAW10_ADD_FIELD. */
+struct  ofp10_action_add_field {
+    ovs_be16 type;                  /* OFPAT_RAW10_ADD_FIELD. */
+    ovs_be16 len;                   /* Length is padded to 64 bits. */
+    /*uint8_t pad[4];*/
+
+    ovs_be16 tag_id;    /* protocol id */
+    ovs_be16 tag_pos;   /* the position to add the tag into the packet, bit unit. */
+    ovs_be32 tag_len;   /* bit number, max length is 64. */
+
+    uint8_t tag_value[POF_MAX_FIELD_LENGTH_IN_BYTE];
+
+    uint8_t pad2[4];  /* padding bytes should be at last */
+};
+OFP_ASSERT(sizeof(struct ofp10_action_add_field) == 32);
+
+/* zq: encode_ADD_FIELD.
+ *
+ * encode ofpact_add_field into ofp10_action_add_field.
+ * */
+static void
+encode_ADD_FIELD(const struct ofpact_add_field *oaf,
+                 enum ofp_version ofp_version, struct ofpbuf *out)
+{
+    VLOG_INFO("++++++zq encode_ADD_FIELD: start");
+    struct ofp10_action_add_field *oaaf;
+    oaaf = put_OFPAT10_ADD_FIELD(out);
+    oaaf->tag_id = htons(oaf->tag_id);
+    oaaf->tag_pos = htons(oaf->tag_pos);
+    oaaf->tag_len = htonl(oaf->tag_len);
+    memcpy(oaaf->tag_value, oaf->tag_value, sizeof(oaf->tag_value));
+
+    VLOG_INFO("++++++zq encode_ADD_FIELD: end");
+}
+
+/* zq: format_ADD_FIELD.
+ *
+ * the format of dump-flows.
+ * */
+static void
+format_ADD_FIELD(const struct ofpact_add_field *oaf, struct ds *s)
+{
+    VLOG_INFO("++++++zq format_ADD_FIELD: start");
+    ds_put_format(s, "%sadd_field->field_id=%s%"PRIu16",offset=%"PRIu16",len=%"PRIu16,
+                  colors.special, colors.end, oaf->tag_id, oaf->tag_pos, oaf->tag_len);
+    /*VLOG_INFO("++++++tsf format_ADD_FIELD: field_id=%d, offset=%d, len=%d", oaf->tag_id, oaf->tag_pos, oaf->tag_len);*/
+
+    union mf_value field_value;
+    void * copy_dst;
+    char * value_dst;
+    uint8_t * payload;
+
+    copy_dst = &field_value;
+    payload = oaf->tag_value;
+    memset(copy_dst, 0x00, 128 / 8);
+    memcpy(copy_dst, payload, oaf->tag_len / 8);
+    inet_ntop(AF_INET6, copy_dst, value_dst, INET6_ADDRSTRLEN);
+
+    ds_put_format(s, "%s,value=%s%s", colors.special, value_dst, colors.end);
+    /*VLOG_INFO("++++++tsf format_ADD_FIELD: value=%s", value_dst);*/
+    VLOG_INFO("++++++zq format_ADD_FIELD: end");
+}
+
+/* zq: parse_ADD_FIELD.
+ *
+ * parse the str to uint*_t.
+ * */
+static char * OVS_WARN_UNUSED_RESULT
+parse_ADD_FIELD(char *arg, const struct ofpact_parse_params *pp)
+{
+    VLOG_INFO("++++++zq parse_ADD_FIELD: start");
+    struct ofpact_add_field *add_field = ofpact_put_ADD_FIELD((pp->ofpacts));
+
+    char *key, *value;
+    while (ofputil_parse_key_value(&arg, &key, &value)) {
+        char *error = NULL;
+
+        if (!strcmp(key, "tag_id")) {
+            error = str_to_u16(value, "tag_id", &add_field->tag_id);
+        } else if (!strcmp(key, "tag_pos")) {
+            error = str_to_u16(value, "tag_pos", &add_field->tag_pos);
+        } else if (!strcmp(key, "tag_len")) {
+            error = str_to_u16(value, "tag_len", (uint16_t *) &add_field->tag_len);
+        } else if (!strcmp(key, "tag_value")) {
+            error = str_to_u64(value, &add_field->tag_value);
+        } else {
+            error = xasprintf("invalid key \"%s\" in \"add_field\" argument", key);
+        }
+
+        if (error) {
+            return error;
+        }
+
+        VLOG_INFO("++++++zq parse_ADD_FIELD: end");
+
+        return NULL;
+    }
+}
+
+/* zq: decode_OFPAT_RAW10_ADD_FIELD.
+ *
+ * convert ofp10_action_add_field into ofpact_add_field.
+ * */
+static enum ofperr
+decode_OFPAT_RAW10_ADD_FIELD(const struct ofp10_action_add_field *oaaf,
+                             enum ofp_version ofp_version OVS_UNUSED,
+                             struct ofpbuf *ofpacts)
+{
+    VLOG_INFO("++++++zq decode_OFPAT_RAW10_ADD_FIELD: start");
+    struct ofpact_add_field *oaf = ofpact_put_ADD_FIELD(ofpacts);
+
+    oaf->tag_id = ntohs(oaaf->tag_id);
+    oaf->tag_pos = ntohs(oaaf->tag_pos);
+    oaf->tag_len = ntohl(oaaf->tag_len);
+    memcpy(oaf->tag_value, oaaf->tag_value, sizeof(oaaf->tag_value));
+
+    VLOG_INFO("++++++zq decode_OFPAT_RAW10_ADD_FIELD: start");
+
+    return 0;
+}
+
+/* zq: check_ADD_FIELD.*/
+static enum ofperr
+check_ADD_FIELD(const struct ofpact_add_field *a,
+             const struct ofpact_check_params *cp)
+{
+    return 0;
+}
+
+/* zq: Delete field actions. */
+struct  ofp10_action_delete_field {
+    ovs_be16 type;                  /* OFPAT_RAW10_DELETE_FIELD. */
+    ovs_be16 len;                   /* Length is padded to 64 bits. */
+    /*uint8_t pad[4];*/             /* padding bytes should be at last */
+
+    ovs_be16 tag_pos;               /* the position of the tag to be deleted, bit unit. */
+    uint8_t len_type;               /* length type:0 means length is immediate value,
+     	 	 	 	 	 	 	 	   1 means length comes from packet/metadata field */
+    uint8_t pad[5];                 /* 8 bytes aligned. */
+    union {
+        ovs_be32 value;
+        struct pof_match field;
+    } tag_len;                      /* bit number, max length is 64. */
+
+    uint8_t pad2[4];  /* padding bytes should be at last */
+};
+OFP_ASSERT(sizeof(struct ofp10_action_delete_field) == 24);
+
+/* zq: encode_DELETE_FIELD.
+ *
+ * encode ofpact_delete_field into ofp10_action_delete_field.
+ * */
+static void
+encode_DELETE_FIELD(const struct ofpact_delete_field *odf,
+                    enum ofp_version ofp_version, struct ofpbuf *out)
+{
+    VLOG_INFO("++++++zq encode_DELETE_FIELD: start");
+    struct ofp10_action_delete_field *oadf;
+    oadf = put_OFPAT10_DELETE_FIELD(out);
+    oadf->tag_pos = htons(odf->tag_pos);
+//	oadf->len_type = htons(odf->len_type);
+    oadf->len_type = odf->len_type;
+
+    switch(odf->len_type) {
+        case 0:  // POFVT_IMMEDIATE_NUM
+            oadf->tag_len.value = htonl(odf->tag_len.value);
+            break;
+        case 1: // POFVT_FIELD
+            oadf->tag_len.field.field_id = htons(odf->tag_len.field.field_id);
+            oadf->tag_len.field.offset = htons(odf->tag_len.field.offset);
+            oadf->tag_len.field.len = htons(odf->tag_len.field.len);
+            break;
+    }
+
+    VLOG_INFO("++++++zq encode_DELETE_FIELD: end");
+}
+
+/* zq: format_DELETE_FIELD.
+ *
+ * the format of dump-flows.
+ * */
+static void
+format_DELETE_FIELD(const struct ofpact_delete_field *odf, struct ds *s)
+{
+    VLOG_INFO("++++++zq format_DELETE_FIELD: start");
+    char * len_type_str[2] = {"POFVT_IMMEDIATE_NUM", "POFVT_FIELD"};
+
+    switch(odf->len_type) {
+        case 0: // POFVT_IMMEDIATE_NUM:
+            /*VLOG_INFO("++++++tsf format_DELETE_FIELD: in case POFVT_IMMEDIATE_NUM(0)");*/
+            ds_put_format(s, "%sdelete_field->offset=%s%"PRIu16",len_type=%s,tag_len[value]=%"PRIu32,
+                          colors.special, colors.end, odf->tag_pos, len_type_str[0], odf->tag_len.value);
+            break;
+        case 1: // POFVT_FIELD
+            /*VLOG_INFO("++++++tsf format_DELETE_FIELD: in case POFVT_FIELD(1)");*/
+            ds_put_format(s, "%sdelete_field->offset=%s%"PRIu16",len_type=%s,tag_len[match]=<field_id=%"PRIu16",offset=%"PRIu16",len=%"PRIu16">",
+                          colors.special, colors.end, odf->tag_pos, len_type_str[1],
+                          odf->tag_len.field.field_id, odf->tag_len.field.offset, odf->tag_len.field.len);
+            break;
+    }
+
+    VLOG_INFO("++++++zq format_DELETE_FIELD: end");
+}
+
+/* zq: parse_delete_FIELD.
+ *
+ * parse the str to uint*_t.
+ * */
+static char * OVS_WARN_UNUSED_RESULT
+parse_DELETE_FIELD(char *arg, const struct ofpact_parse_params *pp)
+{
+    VLOG_INFO("++++++zq parse_DELETE_FIELD: start");
+    struct ofpact_delete_field *delete_field = ofpact_put_DELETE_FIELD(pp->ofpacts);
+
+    char *key, *value;
+    while (ofputil_parse_key_value(&arg, &key, &value)) {
+        char *error = NULL;
+
+        if (!strcmp(key, "tag_pos")) {
+            error = str_to_u16(value, "tag_pos", &delete_field->tag_pos);
+        } else if (!strcmp(key, "len_type")) {
+            error = str_to_u16(value, "len_type", &delete_field->len_type);
+        } else if (!strcmp(key, "tag_len")) {
+            error = str_to_u64(value, &delete_field->tag_len);  // not right in fact
+        } else {
+            error = xasprintf("invalid key \"%s\" in \"delete_field\" argument", key);
+        }
+
+        if (error) {
+            return error;
+        }
+
+        VLOG_INFO("++++++zq parse_DELETE_FIELD: end");
+
+        return NULL;
+    }
+}
+
+/* zq: decode_OFPAT_RAW10_DELETE_FIELD.
+ *
+ * convert ofp10_action_delete_field into ofpact_delete_field.
+ * */
+static enum ofperr
+decode_OFPAT_RAW10_DELETE_FIELD(const struct ofp10_action_delete_field *oadf,
+                                enum ofp_version ofp_version OVS_UNUSED,
+                                struct ofpbuf *ofpacts)
+{
+    VLOG_INFO("++++++zq decode_OFPAT_RAW10_DELETE_FIELD: start");
+    struct ofpact_delete_field *odf = ofpact_put_DELETE_FIELD(ofpacts);
+
+    odf->tag_pos = ntohs(oadf->tag_pos);
+//	odf->len_type = ntohs(oadf->len_type);
+    odf->len_type = oadf->len_type;
+
+    switch(odf->len_type) {
+        case 0: // POFVT_IMMEDIATE_NUM
+            odf->tag_len.value = ntohl(oadf->tag_len.value);
+            break;
+        case 1: // POFVT_FIELD
+            odf->tag_len.field.field_id = ntohs(oadf->tag_len.field.field_id);
+            odf->tag_len.field.offset = ntohs(oadf->tag_len.field.offset);
+            odf->tag_len.field.len = ntohs(oadf->tag_len.field.len);
+            break;
+    }
+
+    VLOG_INFO("++++++zq decode_OFPAT_RAW10_DELETE_FIELD: end");
+
+    return 0;
+}
+
+/* zq: check_DELETE_FIELD.*/
+static enum ofperr
+check_DELETE_FIELD(const struct ofpact_delete_field *a,
+                const struct ofpact_check_params *cp)
+{
+    return 0;
+}
+
 /* Group actions. */
 
 static enum ofperr
@@ -7823,6 +8110,8 @@ action_set_classify(const struct ofpact *a)
 #undef FINAL
 
     case OFPACT_SET_FIELD:
+    case OFPACT_ADD_FIELD:
+    case OFPACT_DELETE_FIELD:
     case OFPACT_REG_MOVE:
     case OFPACT_SET_ETH_DST:
     case OFPACT_SET_ETH_SRC:
@@ -8019,6 +8308,8 @@ ovs_instruction_type_from_ofpact_type(enum ofpact_type type,
     case OFPACT_GOTO_TABLE:
         return OVSINST_OFPIT11_GOTO_TABLE;
     case OFPACT_OUTPUT:
+    case OFPACT_ADD_FIELD:
+    case OFPACT_DELETE_FIELD:
     case OFPACT_GROUP:
     case OFPACT_CLONE:
     case OFPACT_CONTROLLER:
@@ -8786,14 +9077,16 @@ get_ofpact_map(enum ofp_version version)
         { OFPACT_SET_VLAN_VID, 1 },
         { OFPACT_SET_VLAN_PCP, 2 },
         { OFPACT_STRIP_VLAN, 3 },
-        { OFPACT_SET_ETH_SRC, 4 },
-        { OFPACT_SET_ETH_DST, 5 },
+        { OFPACT_SET_ETH_SRC, 44 },
+        { OFPACT_SET_ETH_DST, 55 },
         { OFPACT_SET_IPV4_SRC, 6 },
         { OFPACT_SET_IPV4_DST, 7 },
         { OFPACT_SET_IP_DSCP, 8 },
         { OFPACT_SET_L4_SRC_PORT, 9 },
         { OFPACT_SET_L4_DST_PORT, 10 },
         { OFPACT_ENQUEUE, 11 },
+        {OFPACT_ADD_FIELD, 4}, /* zq: according to enum ofp_raw_action_type (of1.0+)  */
+        {OFPACT_DELETE_FIELD, 5}, /* zq: according to enum ofp_raw_action_type (of1.0+)  */
         { 0, -1 },
     };
 
@@ -8803,8 +9096,8 @@ get_ofpact_map(enum ofp_version version)
         { OFPACT_SET_VLAN_VID, 1 },
         { OFPACT_SET_VLAN_PCP, 2 },
         { OFPACT_SET_ETH_SRC, 3 },
-        { OFPACT_SET_ETH_DST, 4 },
-        { OFPACT_SET_IPV4_SRC, 5 },
+        { OFPACT_SET_ETH_DST, 44 },
+        { OFPACT_SET_IPV4_SRC, 55 },
         { OFPACT_SET_IPV4_DST, 6 },
         { OFPACT_SET_IP_DSCP, 7 },
         { OFPACT_SET_IP_ECN, 8 },
@@ -8824,6 +9117,8 @@ get_ofpact_map(enum ofp_version version)
         { OFPACT_GROUP, 22 },
         { OFPACT_SET_IP_TTL, 23 },
         { OFPACT_DEC_TTL, 24 },
+        {OFPACT_ADD_FIELD, 4},/* zq: according to enum ofp_raw_action_type (of1.0+)  */
+        {OFPACT_DELETE_FIELD, 5},/* zq: according to enum ofp_raw_action_type (of1.0+)  */
         { 0, -1 },
     };
 
@@ -8843,6 +9138,8 @@ get_ofpact_map(enum ofp_version version)
         { OFPACT_SET_IP_TTL, 23 },
         { OFPACT_DEC_TTL, 24 },
         { OFPACT_SET_FIELD, 25 },
+        {OFPACT_ADD_FIELD, 4}, /* zq: according to enum ofp_raw_action_type (of1.0+)  */
+        {OFPACT_DELETE_FIELD, 5}, /* zq: according to enum ofp_raw_action_type (of1.0+)  */
         /* OF1.3+ OFPAT_PUSH_PBB (26) not supported. */
         /* OF1.3+ OFPAT_POP_PBB (27) not supported. */
         { 0, -1 },
@@ -8948,6 +9245,8 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, ofp_port_t port)
     case OFPACT_STACK_PUSH:
     case OFPACT_STACK_POP:
     case OFPACT_DEC_TTL:
+    case OFPACT_ADD_FIELD: /* zq */
+    case OFPACT_DELETE_FIELD:  /* zq */
     case OFPACT_SET_MPLS_LABEL:
     case OFPACT_SET_MPLS_TC:
     case OFPACT_SET_MPLS_TTL:

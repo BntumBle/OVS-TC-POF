@@ -62,7 +62,6 @@ struct vl_mff_map;
 #define OFPACTS                                                         \
     /* Output. */                                                       \
     OFPACT(OUTPUT,          ofpact_output,      ofpact, "output")       \
-    OFPACT(DROP,            ofpact_drop,        ofpact, "drop")         \
     OFPACT(GROUP,           ofpact_group,       ofpact, "group")        \
     OFPACT(CONTROLLER,      ofpact_controller,  userdata, "controller") \
     OFPACT(ENQUEUE,         ofpact_enqueue,     ofpact, "enqueue")      \
@@ -71,7 +70,6 @@ struct vl_mff_map;
                                                                         \
     /* Header changes. */                                               \
     OFPACT(SET_FIELD,       ofpact_set_field,   ofpact, "set_field")    \
-    OFPACT(MODIFY_FIELD,    ofpact_modify_field,ofpact, "modify_field") \
     OFPACT(ADD_FIELD,       ofpact_add_field,   ofpact, "add_field")    \
     OFPACT(DELETE_FIELD,    ofpact_delete_field,ofpact, "delete_field") \
     OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,    ofpact, "set_vlan_vid") \
@@ -596,6 +594,10 @@ struct ofpact_set_field {
         bool flow_has_vlan;   /* VLAN present at action validation time. */
         const struct mf_field *field;
     );
+    /*zq*/
+    uint16_t field_id;
+    uint16_t offset; /*bit unit*/
+    uint16_t len;   /*length in bit unit*/
     union mf_value value[];  /* Significant value bytes followed by
                               * significant mask bytes. */
 };
@@ -1304,18 +1306,22 @@ void *ofpact_finish(struct ofpbuf *, struct ofpact *);
     BUILD_ASSERT_DECL(offsetof(struct STRUCT, ofpact) == 0);            \
                                                                         \
     /* Action structures must be a multiple of OFPACT_ALIGNTO bytes. */ \
-    BUILD_ASSERT_DECL(sizeof(struct STRUCT) % OFPACT_ALIGNTO == 0);     \
+    /*BUILD_ASSERT_DECL(sizeof(struct STRUCT) % OFPACT_ALIGNTO == 0); */    \
                                                                         \
     /* Variable-length data must start at a multiple of OFPACT_ALIGNTO  \
      * bytes. */                                                        \
-    BUILD_ASSERT_DECL(offsetof(struct STRUCT, MEMBER)                   \
-                      % OFPACT_ALIGNTO == 0);                           \
+    /*BUILD_ASSERT_DECL(offsetof(struct STRUCT, MEMBER)                   \
+                      % OFPACT_ALIGNTO == 0);   */                        \
                                                                         \
     /* If there is variable-length data, it starts at the end of the    \
      * structure. */                                                    \
-    BUILD_ASSERT_DECL(!offsetof(struct STRUCT, MEMBER)                  \
+    /*BUILD_ASSERT_DECL(!offsetof(struct STRUCT, MEMBER)                  \
                       || (offsetof(struct STRUCT, MEMBER)               \
-                          == sizeof(struct STRUCT)));                   \
+                          == sizeof(struct STRUCT)));   */                \
+    enum { OFPACT_##ENUM##_SIZE                                         \
+           = (offsetof(struct STRUCT, MEMBER)                           \
+              ? offsetof(struct STRUCT, MEMBER)                         \
+              : OFPACT_ALIGN(sizeof(struct STRUCT))) };                 \
                                                                         \
     static inline struct STRUCT *                                       \
     ofpact_get_##ENUM(const struct ofpact *ofpact)                      \

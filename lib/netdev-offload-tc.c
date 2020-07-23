@@ -1705,10 +1705,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             const struct ovs_key_add_field *p_key = nl_attr_get(nla);
 
             switch (type) {
-                case OVS_KEY_ATTR_ADD_FIELD:
+                case OVS_KEY_ATTR_ADD_FIELD: {
                     uint8_t in_port_int = p_key->in_port;
                     uint8_t out_port_int = p_key->out_port;
-                    ovs_be16 tci = (ovs_be16)(out_port_int << 8)|in_port_int;
+                    ovs_be16 tci = (ovs_be16) (out_port_int << 8) | in_port_int;
                     uint16_t int_type = 0x0908;
                     VLOG_INFO("++++++zq netdev_flow_put: int_type:%llx", int_type);
 
@@ -1717,8 +1717,8 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                     action->vlan.vlan_push_prio = vlan_tci_to_pcp(tci);
                     action->type = TC_ACT_VLAN_PUSH;
                     flower.action_count++;
-
-                    break;
+                }
+                break;
                 default:
                     OVS_NOT_REACHED();
             }
