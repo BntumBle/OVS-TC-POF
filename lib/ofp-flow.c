@@ -205,7 +205,7 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
 
         fm->idle_timeout = ntohs(ofm->idle_timeout);
         fm->hard_timeout = ntohs(ofm->hard_timeout);
-        if (oh->version >= OFP14_VERSION && ofm->command == OFPFC_ADD) {
+        /*if (oh->version >= OFP14_VERSION && ofm->command == OFPFC_ADD) {
             fm->importance = ntohs(ofm->importance);
         } else {
             fm->importance = 0;
@@ -219,8 +219,8 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
         fm->out_group = (ofm->command == OFPFC_DELETE ||
                          ofm->command == OFPFC_DELETE_STRICT
                          ? ntohl(ofm->out_group)
-                         : OFPG_ANY);
-        raw_flags = ofm->flags;
+                         : OFPG_ANY);*/
+        raw_flags = 0;/*ofm->flags;zq*/
     } else {
         uint16_t command;
 
@@ -413,7 +413,7 @@ ofputil_encode_flow_mod(const struct ofputil_flow_mod *fm,
         ofm->idle_timeout = htons(fm->idle_timeout);
         ofm->hard_timeout = htons(fm->hard_timeout);
         ofm->priority = htons(fm->priority);
-        ofm->buffer_id = htonl(fm->buffer_id);
+        /*ofm->buffer_id = htonl(fm->buffer_id);
         ofm->out_port = ofputil_port_to_ofp11(fm->out_port);
         ofm->out_group = htonl(fm->out_group);
         ofm->flags = raw_flags;
@@ -421,7 +421,7 @@ ofputil_encode_flow_mod(const struct ofputil_flow_mod *fm,
             ofm->importance = htons(fm->importance);
         } else {
             ofm->importance = 0;
-        }
+        }*/
         ofputil_put_ofp11_match(msg, &match, protocol);
         ofpacts_put_openflow_instructions(fm->ofpacts, fm->ofpacts_len, msg,
                                           version);

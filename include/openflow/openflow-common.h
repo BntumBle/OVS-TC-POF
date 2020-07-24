@@ -297,16 +297,16 @@ struct ofp_switch_features {
     /*uint8_t poftest[192];how to init sqy*/
 
 
-//    ovs_be32 n_buffers;     /* Max packets buffered at once. */
-//
-//    uint8_t n_tables;       /* Number of tables supported by datapath. */
-//    uint8_t auxiliary_id;   /* OF 1.3: Identify auxiliary connections */
-//    uint8_t pad[2];         /* Align to 64-bits. */
-//
-//    /* Features. */
-//    ovs_be32 capabilities;  /* OFPC_*, OFPC10_*, OFPC11_*, OFPC12_*. */
-//    ovs_be32 actions;       /* Bitmap of supported "ofp_action_type"s.
-//                             * DEPRECATED in OpenFlow 1.1 */
+    /*    ovs_be32 n_buffers;     /* Max packets buffered at once. */
+    /*
+    /*    uint8_t n_tables;       /* Number of tables supported by datapath. */
+    /*    uint8_t auxiliary_id;   /* OF 1.3: Identify auxiliary connections */
+    /*    uint8_t pad[2];         /* Align to 64-bits. */
+    /*
+    /* Features. */
+    /*    ovs_be32 capabilities;  /* OFPC_*, OFPC10_*, OFPC11_*, OFPC12_*. */
+    /*    ovs_be32 actions;       /* Bitmap of supported "ofp_action_type"s.
+    /*                             * DEPRECATED in OpenFlow 1.1 */
 
     /* Followed by an array of struct ofp10_phy_port or struct ofp11_port
      * structures.  The number is inferred from header.length.

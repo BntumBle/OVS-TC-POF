@@ -92,6 +92,13 @@ EXTRA_DIST = \
 	$(MAN_ROOTS) \
 	Vagrantfile \
 	Vagrantfile-FreeBSD \
+	$$config_file \
+    .idea/misc.xml \
+    .idea/modules.xml \
+    .idea/ovs.iml \
+    .idea/vcs.xml \
+    CMakeLists.txt \
+    unsetup_ovs.sh \
 	.mailmap
 bin_PROGRAMS =
 sbin_PROGRAMS =
