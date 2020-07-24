@@ -1062,7 +1062,7 @@ ofputil_decode_table_mod(const struct ofp_header *oh,
         const struct ofp11_table_mod *otm = b.data;
 
         pm->table_id = otm->table_id;
-        pm->miss = ofputil_decode_table_miss(otm->config, oh->version);
+        pm->miss = ofputil_decode_table_miss(htonl(0), oh->version);
     } else if (raw == OFPRAW_OFPT14_TABLE_MOD) {
         const struct ofp14_table_mod *otm = ofpbuf_pull(&b, sizeof *otm);
 
@@ -1129,8 +1129,8 @@ ofputil_encode_table_mod(const struct ofputil_table_mod *tm,
         b = ofpraw_alloc(OFPRAW_OFPT11_TABLE_MOD, ofp_version, 0);
         otm = ofpbuf_put_zeros(b, sizeof *otm);
         otm->table_id = tm->table_id;
-        otm->config = ofputil_encode_table_config(tm->miss, tm->eviction,
-                                                  tm->vacancy, ofp_version);
+        /*otm->config = ofputil_encode_table_config(tm->miss, tm->eviction,
+                                                  tm->vacancy, ofp_version);zq*/
         break;
     }
     case OFP14_VERSION:
