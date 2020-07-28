@@ -180,6 +180,13 @@ struct ofp12_role_request {
 };
 OFP_ASSERT(sizeof(struct ofp12_role_request) == 16);
 
+/* zq: pof role request and reply message, adapt to onos 1.11. */
+struct ofp12_pof_role_request {
+    uint8_t role;            /* One of OFPCR12_ROLE_*. */
+    uint8_t pad[7];           /* Align to 64 bits. */
+};
+OFP_ASSERT(sizeof(struct ofp12_pof_role_request) == 8);
+
 /* Controller roles. */
 enum ofp12_controller_role {
     OFPCR12_ROLE_NOCHANGE,    /* Don't change current role. */
