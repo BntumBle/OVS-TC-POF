@@ -115,6 +115,55 @@ struct ofputil_flow_mod {
     uint64_t ofpacts_tlv_bitmap; /* 1-bit for each present TLV in 'ofpacts'. */
 };
 
+/* zq:Protocol-independent flow_mod.
+ *
+ * The handling of cookies across multiple versions of OpenFlow is a bit
+ * confusing.  See DESIGN for the details. */
+struct ofputil_pof_flow_mod {
+    struct ovs_list list_node; /* For queuing flow_mods. */
+
+    struct match_x match;
+    int priority;
+
+    /* Cookie matching.  The flow_mod affects only flows that have cookies that
+     * bitwise match 'cookie' bits in positions where 'cookie_mask has 1-bits.
+     *
+     * 'cookie_mask' should be zero for OFPFC_ADD flow_mods. */
+    ovs_be64 cookie;         /* Cookie bits to match. */
+    ovs_be64 cookie_mask;    /* 1-bit in each 'cookie' bit to match. */
+
+    /* Cookie changes.
+     *
+     * OFPFC_ADD uses 'new_cookie' as the new flow's cookie.  'new_cookie'
+     * should not be UINT64_MAX.
+     *
+     * OFPFC_MODIFY and OFPFC_MODIFY_STRICT have two cases:
+     *
+     *   - If one or more matching flows exist and 'modify_cookie' is true,
+     *     then the flow_mod changes the existing flows' cookies to
+     *     'new_cookie'.  'new_cookie' should not be UINT64_MAX.
+     *
+     *   - If no matching flow exists, 'new_cookie' is not UINT64_MAX, and
+     *     'cookie_mask' is 0, then the flow_mod adds a new flow with
+     *     'new_cookie' as its cookie.
+     */
+    ovs_be64 new_cookie;     /* New cookie to install or UINT64_MAX. */
+    bool modify_cookie;      /* Set cookie of existing flow to 'new_cookie'? */
+
+    uint8_t table_id;
+    uint16_t command;
+    uint16_t idle_timeout;
+    uint16_t hard_timeout;
+    uint32_t buffer_id;
+    ofp_port_t out_port;
+    uint32_t out_group;
+    enum ofputil_flow_mod_flags flags;
+    uint16_t importance;     /* Eviction precedence. */
+    struct ofpact *ofpacts;  /* Series of "struct ofpact"s. */
+    size_t ofpacts_len;      /* Length of ofpacts, in bytes. */
+    uint64_t ofpacts_tlv_bitmap; /* zq:1-bit for each present TLV in 'ofpacts'. */
+};
+
 enum ofperr ofputil_decode_flow_mod(struct ofputil_flow_mod *,
                                     const struct ofp_header *,
                                     enum ofputil_protocol,
@@ -123,6 +172,14 @@ enum ofperr ofputil_decode_flow_mod(struct ofputil_flow_mod *,
                                     struct ofpbuf *ofpacts,
                                     ofp_port_t max_port,
                                     uint8_t max_table);
+enum ofperr ofputil_decode_flow_mod_pof(struct ofputil_pof_flow_mod *,
+                                        const struct ofp_header *,
+                                        enum ofputil_protocol,
+                                        const struct tun_table *,
+                                        const struct vl_mff_map *,
+                                        struct ofpbuf *ofpacts,
+                                        ofp_port_t max_port,
+                                        uint8_t max_table);
 struct ofpbuf *ofputil_encode_flow_mod(const struct ofputil_flow_mod *,
                                        enum ofputil_protocol);
 enum ofperr ofputil_flow_mod_format(struct ds *, const struct ofp_header *,

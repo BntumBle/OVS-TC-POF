@@ -132,6 +132,7 @@ ofputil_flow_mod_flags_format(struct ds *s, enum ofputil_flow_mod_flags flags)
     }
 }
 
+
 /* Converts an OFPT_FLOW_MOD or NXT_FLOW_MOD message 'oh' into an abstract
  * flow_mod in 'fm'.  Returns 0 if successful, otherwise an OpenFlow error
  * code.
@@ -357,6 +358,198 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
     return error;
 }
 
+enum ofperr
+ofputil_decode_flow_mod_pof(struct ofputil_pof_flow_mod *fm,
+                            const struct ofp_header *oh,
+                            enum ofputil_protocol protocol,
+                            const struct tun_table *tun_table,
+                            const struct vl_mff_map *vl_mff_map,
+                            struct ofpbuf *ofpacts,
+                            ofp_port_t max_port, uint8_t max_table)
+{
+    ovs_be16 raw_flags;
+    enum ofperr error;
+    struct ofpbuf bb = ofpbuf_const_initializer(oh, ntohs(oh->length));
+    enum ofpraw raw = ofpraw_pull_assert(&bb);
+
+
+    if (raw != OFPRAW_NXT_FLOW_MOD){
+        struct ofpbuf b = ofpbuf_const_initializer(oh, ntohs(oh->length));
+        /* Standard OpenFlow 1.1+ flow_mod. */
+        const struct ofp11_flow_mod *ofm;
+        uint8_t i=0;
+        ofm = ofpbuf_pull(&b, sizeof *oh);
+
+        /*VLOG_INFO("++++++++sqy sizeof *ofm: %d; b.size: %d"
+                      " control message", sizeof *ofm, b.size);*/
+        ofm = ofpbuf_pull(&b, sizeof *ofm);
+
+        /*error = ofputil_pull_pof_match_x(&b, &fm->match, NULL);*/
+        memset(&fm->match.flow, 0, sizeof fm->match.flow);
+        memset(&fm->match.wc.masks, 0, sizeof fm->match.flow);
+        memset(&fm->match.tun_md, 0, sizeof fm->match.tun_md);
+
+        for(i=0; i<ofm->match_field_num; i++){
+
+            fm->match.flow.field_id[i] = ofm->match[i].field_id;
+            fm->match.flow.len[i] = ofm->match[i].len;
+            fm->match.flow.offset[i] = ofm->match[i].offset;
+            fm->match.wc.masks.field_id[i] = ofm->match[i].field_id;
+            fm->match.wc.masks.len[i] = ofm->match[i].len;
+            fm->match.wc.masks.offset[i] = ofm->match[i].offset;
+            VLOG_INFO("++++++++zq pof_flow_gen_from_packet field_id:%d: len: %d; offset: %d",
+                      ntohs(ofm->match[i].field_id), ntohs(ofm->match[i].len), ntohs(ofm->match[i].offset));
+            size_t j;
+            for (j = 0; j < ARRAY_SIZE(ofm->match[i].value); j++) {
+                fm->match.flow.value[i][j] = ofm->match[i].value[j];
+                fm->match.wc.masks.value[i][j] = ofm->match[i].mask[j];
+                VLOG_INFO("++++++++zq ofputil_decode_flow_mod_pof %d: value: %d; mask: %d",
+                          i, fm->match.flow.value[i][j], fm->match.wc.masks.value[i][j]);
+            }
+        }
+
+        /* Translate the message. */
+        fm->priority = ntohs(ofm->priority);
+        if (ofm->command == OFPFC_ADD
+            || (oh->version == OFP11_VERSION
+                && (ofm->command == OFPFC_MODIFY ||
+                    ofm->command == OFPFC_MODIFY_STRICT)
+                && ofm->cookie_mask == htonll(0))) {
+            /* In OpenFlow 1.1 only, a "modify" or "modify-strict" that does
+             * not match on the cookie is treated as an "add" if there is no
+             * match. */
+            fm->cookie = htonll(0);
+            fm->cookie_mask = htonll(0);
+            fm->new_cookie = ofm->cookie;
+        } else {
+            fm->cookie = ofm->cookie;
+            fm->cookie_mask = ofm->cookie_mask;
+            fm->new_cookie = OVS_BE64_MAX;
+        }
+        fm->modify_cookie = false;
+        fm->command = ofm->command;
+
+        /* Get table ID.
+         *
+         * OF1.1 entirely forbids table_id == OFPTT_ALL.
+         * OF1.2+ allows table_id == OFPTT_ALL only for deletes. */
+        fm->table_id = ofm->table_id;
+        if (fm->table_id == OFPTT_ALL
+            && (oh->version == OFP11_VERSION
+                || (ofm->command != OFPFC_DELETE &&
+                    ofm->command != OFPFC_DELETE_STRICT))) {
+            return OFPERR_OFPFMFC_BAD_TABLE_ID;
+        }
+
+        fm->idle_timeout = ntohs(ofm->idle_timeout);
+        fm->hard_timeout = ntohs(ofm->hard_timeout);
+        if (oh->version >= OFP14_VERSION && ofm->command == OFPFC_ADD) {
+            fm->importance = ntohs(0);/*ofm->importance sqy*/
+        } else {
+            fm->importance = 0;
+        }
+
+        fm->out_group = OFPG_ANY;/*(ofm->command == OFPFC_DELETE ||
+                         ofm->command == OFPFC_DELETE_STRICT
+                         ? ntohl(ofm->out_group)
+                         : OFPG_ANY); sqy*/
+        raw_flags = htons(0);/*ofm->flags;*/
+
+        if (fm->command > OFPFC_DELETE_STRICT) {
+            return OFPERR_OFPFMFC_BAD_COMMAND;
+        }
+
+        VLOG_INFO("+++++++++++zq ofputil_decode_flow_mod_pof: befoore ofpacts_pull_openflow_pof_instructions oh->version=%d",oh->version);
+        error = ofpacts_pull_openflow_pof_instructions(&b, ofm->instruction_num * OFP11_INSTRUCTION_ALIGN,
+                                                   oh->version, vl_mff_map, &fm->ofpacts_tlv_bitmap, ofpacts);
+        if (error) {
+            return error;
+        }
+        fm->ofpacts = ofpacts->data;
+        fm->ofpacts_len = ofpacts->size;
+
+    }
+    else if (raw == OFPRAW_NXT_FLOW_MOD){
+        /* Nicira extended flow_mod. */
+
+        VLOG_INFO("+++++++++++zq ofputil_decode_flow_mod_pof: OFPRAW_NXT_FLOW_MOD");
+        const struct nx_flow_mod *nfm;
+        uint16_t command;
+        /* Dissect the message. */
+        nfm = ofpbuf_pull(&bb, sizeof *nfm);
+        error = nx_pull_pof_match(&bb, ntohs(nfm->match_len),
+                                  &fm->match, &fm->cookie, &fm->cookie_mask,
+                                  tun_table, vl_mff_map);
+        VLOG_INFO("+++++++++++zq ofputil_decode_flow_mod_pof: nx_pull_pof_match");
+        if (error) {
+            return error;
+        }
+
+        /* Translate the message. */
+        command = ntohs(nfm->command);
+        if ((command & 0xff) == OFPFC_ADD && fm->cookie_mask) {
+            /* Flow additions may only set a new cookie, not match an
+             * existing cookie. */
+            return OFPERR_NXBRC_NXM_INVALID;
+        }
+        fm->priority = ntohs(nfm->priority);
+        fm->new_cookie = nfm->cookie;
+        fm->idle_timeout = ntohs(nfm->idle_timeout);
+        fm->hard_timeout = ntohs(nfm->hard_timeout);
+        fm->importance = 0;
+        fm->buffer_id = ntohl(nfm->buffer_id);
+        fm->out_port = u16_to_ofp(ntohs(nfm->out_port));
+        fm->out_group = OFPG_ANY;
+        raw_flags = nfm->flags;
+        fm->modify_cookie = fm->new_cookie != OVS_BE64_MAX;
+        if (protocol & OFPUTIL_P_TID) {
+            fm->command = command & 0xff;
+            fm->table_id = command >> 8;
+        } else {
+            if (command > 0xff) {
+                VLOG_WARN_RL(&rl, "flow_mod has explicit table_id "
+                                            "but flow_mod_table_id extension is not enabled");
+            }
+            fm->command = command;
+            fm->table_id = 0xff;
+        }
+
+        if (fm->command > OFPFC_DELETE_STRICT) {
+            return OFPERR_OFPFMFC_BAD_COMMAND;
+        }
+
+        error = ofpacts_pull_openflow_pof_instructions(&bb, bb.size,
+                                                   oh->version, NULL, NULL, ofpacts);
+        if (error) {
+            return error;
+        }
+        fm->ofpacts = ofpacts->data;
+        fm->ofpacts_len = ofpacts->size;
+
+
+    }
+
+    error = ofputil_decode_flow_mod_flags(raw_flags, fm->command,
+                                          oh->version, &fm->flags);
+    VLOG_INFO("+++++++++++sqy ofputil_decode_flow_mod_pof: after ofputil_decode_flow_mod_flags");
+    if (error) {
+        return error;
+    }
+
+    if (fm->flags & OFPUTIL_FF_EMERG) {
+        /* We do not support the OpenFlow 1.0 emergency flow cache, which
+         * is not required in OpenFlow 1.0.1 and removed from OpenFlow 1.1.
+         *
+         * OpenFlow 1.0 specifies the error code to use when idle_timeout
+         * or hard_timeout is nonzero.  Otherwise, there is no good error
+         * code, so just state that the flow table is full. */
+        return (fm->hard_timeout || fm->idle_timeout
+                ? OFPERR_OFPFMFC_BAD_EMERG_TIMEOUT
+                : OFPERR_OFPFMFC_TABLE_FULL);
+    }
+
+    return 0;
+}
 static ovs_be16
 ofputil_tid_command(const struct ofputil_flow_mod *fm,
                     enum ofputil_protocol protocol)

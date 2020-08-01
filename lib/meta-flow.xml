@@ -2903,6 +2903,57 @@ actions=clone(load:0->NXM_OF_IN_PORT[],output:123)
     <field id="MFF_XXREG3" title="Double-Extended Register 3" hidden="yes"/>
   </group>
 
+  <group title="POF">
+
+    <p>
+            POF
+    </p>
+
+    <field id="MFF_FIELD_ID0" title="POF_FIELD_ID0">
+    </field>
+    <!-- XXX series -->
+    <field id="MFF_FIELD_ID1" title="POF_FIELD_ID1" hidden="yes"/>
+    <field id="MFF_FIELD_ID2" title="POF_FIELD_ID2" hidden="yes"/>
+    <field id="MFF_FIELD_ID3" title="POF_FIELD_ID3" hidden="yes"/>
+    <field id="MFF_FIELD_ID4" title="POF_FIELD_ID4" hidden="yes"/>
+    <field id="MFF_FIELD_ID5" title="POF_FIELD_ID5" hidden="yes"/>
+    <field id="MFF_FIELD_ID6" title="POF_FIELD_ID6" hidden="yes"/>
+    <field id="MFF_FIELD_ID7" title="POF_FIELD_ID7" hidden="yes"/>
+
+    <field id="MFF_OFFSET0" title="POF_OFFSET0">
+    </field>
+    <!-- XXX series -->
+    <field id="MFF_OFFSET1" title="POF_OFFSET1" hidden="yes"/>
+    <field id="MFF_OFFSET2" title="POF_OFFSET2" hidden="yes"/>
+    <field id="MFF_OFFSET3" title="POF_OFFSET3" hidden="yes"/>
+    <field id="MFF_OFFSET4" title="POF_OFFSET4" hidden="yes"/>
+    <field id="MFF_OFFSET5" title="POF_OFFSET5" hidden="yes"/>
+    <field id="MFF_OFFSET6" title="POF_OFFSET6" hidden="yes"/>
+    <field id="MFF_OFFSET7" title="POF_OFFSET7" hidden="yes"/>
+
+    <field id="MFF_LENGTH0" title="POF_LENGTH0">
+    </field>
+    <!-- XXX series -->
+    <field id="MFF_LENGTH1" title="POF_LENGTH1" hidden="yes"/>
+    <field id="MFF_LENGTH2" title="POF_LENGTH2" hidden="yes"/>
+    <field id="MFF_LENGTH3" title="POF_LENGTH3" hidden="yes"/>
+    <field id="MFF_LENGTH4" title="POF_LENGTH4" hidden="yes"/>
+    <field id="MFF_LENGTH5" title="POF_LENGTH5" hidden="yes"/>
+    <field id="MFF_LENGTH6" title="POF_LENGTH6" hidden="yes"/>
+    <field id="MFF_LENGTH7" title="POF_LENGTH7" hidden="yes"/>
+
+    <field id="MFF_VALUE0" title="POF_VALUE0">
+    </field>
+    <!-- XXX series -->
+    <field id="MFF_VALUE1" title="POF_VALUE1" hidden="yes"/>
+    <field id="MFF_VALUE2" title="POF_VALUE2" hidden="yes"/>
+    <field id="MFF_VALUE3" title="POF_VALUE3" hidden="yes"/>
+    <field id="MFF_VALUE4" title="POF_VALUE4" hidden="yes"/>
+    <field id="MFF_VALUE5" title="POF_VALUE5" hidden="yes"/>
+    <field id="MFF_VALUE6" title="POF_VALUE6" hidden="yes"/>
+    <field id="MFF_VALUE7" title="POF_VALUE7" hidden="yes"/>
+  </group>
+
   <group title="Layer 2 (Ethernet)">
     <p>
       Ethernet is the only layer-2 protocol that Open vSwitch

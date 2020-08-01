@@ -43,6 +43,13 @@ struct match {
     struct tun_metadata_allocation tun_md;
 };
 
+/*zq*/
+struct match_x {
+    struct pof_flow flow;
+    struct pof_flow_wildcards wc;
+    struct tun_metadata_allocation tun_md;
+};
+
 /* Initializer for a "struct match" that matches every packet. */
 #define MATCH_CATCHALL_INITIALIZER { .flow = { .dl_type = 0 } }
 
@@ -62,6 +69,7 @@ void match_init(struct match *,
                 const struct flow *, const struct flow_wildcards *);
 void match_wc_init(struct match *match, const struct flow *flow);
 void match_init_catchall(struct match *);
+void pof_match_init_catchall(struct match_x *);
 
 void match_zero_wildcarded_fields(struct match *);
 
@@ -75,6 +83,12 @@ void match_set_conj_id(struct match *, uint32_t value);
 void match_set_reg(struct match *, unsigned int reg_idx, uint32_t value);
 void match_set_reg_masked(struct match *, unsigned int reg_idx,
                           uint32_t value, uint32_t mask);
+void pof_match_set_field_id(struct match_x *, unsigned int field_id_idx, ovs_be16 value);
+void pof_match_set_offset(struct match_x *, unsigned int offset_idx, ovs_be16 value);
+void pof_match_set_length(struct match_x *, unsigned int length_idx, ovs_be16 value);
+void pof_match_set_value(struct match_x *, unsigned int value_idx, const struct in6_addr *src);
+void pof_match_set_value_masked(struct match_x *, unsigned int value_idx,
+                                const struct in6_addr *value, const struct in6_addr *mask);
 void match_set_xreg(struct match *, unsigned int xreg_idx, uint64_t value);
 void match_set_xreg_masked(struct match *, unsigned int xreg_idx,
                            uint64_t value, uint64_t mask);
@@ -263,6 +277,7 @@ struct minimatch {
     struct tun_metadata_allocation *tun_md;
 };
 
+void pof_minimatch_init(struct minimatch *, const struct match_x *);
 void minimatch_init(struct minimatch *, const struct match *);
 void minimatch_init_catchall(struct minimatch *);
 void minimatch_clone(struct minimatch *, const struct minimatch *);

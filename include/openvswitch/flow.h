@@ -39,6 +39,11 @@ BUILD_ASSERT_DECL(FLOW_N_REGS % 4 == 0); /* Handle xxregs. */
  * Each of these overlays a pair of Open vSwitch 32-bit registers, so there
  * are half as many of them.*/
 #define FLOW_N_XREGS (FLOW_N_REGS / 2)
+/*zq*/
+#define POF_N_FIELD_IDS 8
+#define POF_N_OFFSETS 8
+#define POF_N_LENGTHS 8
+#define POF_N_VALUES 8
 
 /* Number of 128-bit registers.
  *
@@ -274,6 +279,7 @@ struct pof_fp_flow_wildcards {
     memset(&(WC)->masks.FIELD, 0, sizeof (WC)->masks.FIELD)
 
 void flow_wildcards_init_catchall(struct flow_wildcards *);
+void pof_flow_wildcards_init_catchall(struct pof_flow_wildcards *);
 
 void flow_wildcards_init_for_packet(struct flow_wildcards *,
                                     const struct flow *);

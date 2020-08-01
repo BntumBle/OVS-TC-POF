@@ -428,6 +428,8 @@ static void put_reg_load(struct ofpbuf *openflow,
 
 static enum ofperr ofpact_pull_raw(struct ofpbuf *, enum ofp_version,
                                    enum ofp_raw_action_type *, uint64_t *arg);
+static enum ofperr ofpact_pof_pull_raw(struct ofpbuf *, enum ofp_version,
+                                       enum ofp_raw_action_type *, uint64_t *arg);
 static void *ofpact_put_raw(struct ofpbuf *, enum ofp_version,
                             enum ofp_raw_action_type, uint64_t arg);
 
@@ -439,6 +441,15 @@ static enum ofperr ofpacts_pull_openflow_actions__(
     enum ofp_version version, uint32_t allowed_ovsinsts,
     struct ofpbuf *ofpacts, enum ofpact_type outer_action,
     const struct vl_mff_map *vl_mff_map, uint64_t *ofpacts_tlv_bitmap);
+static enum ofperr ofpacts_pull_openflow_pof_actions__(
+        struct ofpbuf *openflow, unsigned int actions_len,
+        enum ofp_version version, uint32_t allowed_ovsinsts,
+        struct ofpbuf *ofpacts, enum ofpact_type outer_action,
+        const struct vl_mff_map *vl_mff_map, uint64_t *ofpacts_tlv_bitmap);
+static enum ofperr ofpacts_pull_pof_actions__(
+        struct ofpbuf *openflow, unsigned int actions_len,
+        enum ofp_version version, uint32_t allowed_ovsinsts,
+        struct ofpbuf *ofpacts, enum ofpact_type outer_action);
 static char * OVS_WARN_UNUSED_RESULT ofpacts_parse_copy(
     const char *s_, const struct ofpact_parse_params *pp,
     bool allow_instructions, enum ofpact_type outer_action);
@@ -7874,18 +7885,18 @@ static void
 encode_GOTO_TABLE(const struct ofpact_goto_table *goto_table,
                   enum ofp_version ofp_version, struct ofpbuf *out)
 {
-    if (ofp_version == OFP10_VERSION) {
+    if (ofp_version == OFP10_VERSION) { //zq:run
         struct nx_action_resubmit *nar;
 
         nar = put_NXAST_RESUBMIT_TABLE(out);
         nar->table = goto_table->table_id;
         nar->in_port = htons(ofp_to_u16(OFPP_IN_PORT));
-    } else {
+    } else { //zq:no run
         struct ofp11_instruction_goto_table *oigt;
 
         oigt = instruction_put_OFPIT11_GOTO_TABLE(out);
         oigt->table_id = goto_table->table_id;
-        memset(oigt->pad, 0, sizeof oigt->pad);
+        /*memset(oigt->pad, 0, sizeof oigt->pad);zq:error*/
     }
 }
 
@@ -7932,6 +7943,89 @@ log_bad_action(const struct ofp_action_header *actions, size_t actions_len,
                   ofperr_get_name(error), ds_cstr(&s));
         ds_destroy(&s);
     }
+}
+
+
+
+static enum ofperr
+ofpacts_decode_pof1(const void *actions, size_t actions_len,
+                    enum ofp_version ofp_version,
+                    const struct vl_mff_map *vl_mff_map,
+                    uint64_t *ofpacts_tlv_bitmap, struct ofpbuf *ofpacts)
+{
+    struct ofpbuf openflow = ofpbuf_const_initializer(actions, actions_len);
+
+    int i=0;
+    VLOG_INFO("++++++zq action_len: %d, POF_MAX_ACTION_LENGTH: %d, result = %d",
+              actions_len, POF_MAX_ACTION_LENGTH, actions_len/POF_MAX_ACTION_LENGTH);
+    for (i=0; i<actions_len/POF_MAX_ACTION_LENGTH; i++){
+        VLOG_INFO("++++++zq ofpacts_decode_pof1: %dth time", i);
+        const struct ofp_action_header *action = openflow.data;
+        enum ofp_raw_action_type raw;
+        enum ofperr error;
+        uint64_t arg;
+        VLOG_INFO("+++++++++++zq ofpacts_decode_pof1: before ofpact_pull_raw, in pof");
+        error = ofpact_pull_raw(&openflow, ofp_version, &raw, &arg);
+        if (!error) {
+            VLOG_INFO("+++++++++++zq ofpacts_decode_pof1: before ofpact_decode");
+            error = ofpact_decode(action, raw, ofp_version, arg, vl_mff_map,
+                                   ofpacts_tlv_bitmap, ofpacts);
+            /*  // dump raw action data
+            struct ds s;
+            ds_init(&s);
+            ds_put_hex_dump(&s, actions, actions_len, 0, false);
+            VLOG_INFO("+++++tsf ofpacts_decode: ds_put_hex_dump_action: %s", ds_cstr(&s));
+            ds_destroy(&s);
+            */
+            VLOG_INFO("+++++++++++zq ofpacts_decode_pof1: after ofpact_decode");
+        }
+
+        if(raw == 2) {
+            VLOG_INFO("++++++tsf ofpacts_pull_pull_openflow_instructions: detect OFPAT_RAW11_DROP.");
+        }
+
+        if (error) {
+            VLOG_INFO("+++++++++++sqy ofpacts_decode_pof1: before log_bad_action, in pof");
+            log_bad_action(actions, actions_len, action, error);
+            return error;
+        }
+    }
+    return 0;
+}
+
+static enum ofperr
+ofpacts_decode_pof(const void *actions, size_t actions_len,
+               enum ofp_version ofp_version,
+               const struct vl_mff_map *vl_mff_map,
+               uint64_t *ofpacts_tlv_bitmap, struct ofpbuf *ofpacts)
+{
+    struct ofpbuf openflow = ofpbuf_const_initializer(actions, actions_len);
+    VLOG_INFO("++++++zq ofpacts_decode: actions_len:%d, openflow.size:%d, action_num:%d in openflow",
+              actions_len, openflow.size, actions_len / POF_MAX_ACTION_LENGTH);
+    int i = 0;
+    while (openflow.size) {
+        VLOG_INFO("++++++zq i: %dth", i++);
+        const struct ofp_action_header *action = openflow.data;
+        enum ofp_raw_action_type raw;
+        enum ofperr error;
+        uint64_t arg;
+        /*VLOG_INFO("+++++++++++sqy ofpacts_decode: before ofpact_pull_raw");*/
+        VLOG_INFO("++++++zq: ofpacts_decode: before ofpact_pull_raw, in openflow");
+        error = ofpact_pof_pull_raw(&openflow, ofp_version, &raw, &arg);
+        if (!error) {
+            /*VLOG_INFO("+++++++++++sqy ofpacts_decode: before ofpact_decode");*/
+            error = ofpact_decode(action, raw, ofp_version, arg, vl_mff_map,
+                                  ofpacts_tlv_bitmap, ofpacts);
+            /*VLOG_INFO("+++++++++++sqy ofpacts_decode: after ofpact_decode");*/
+        }
+
+        if (error) {
+            VLOG_INFO("+++++++++++zq ofpacts_decode: before log_bad_action, in openflow");
+            log_bad_action(actions, actions_len, action, error);
+            return error;
+        }
+    }
+    return 0;
 }
 
 static enum ofperr
@@ -7987,7 +8081,7 @@ ofpacts_pull_openflow_actions__(struct ofpbuf *openflow,
                      actions_len, openflow->size);
         return OFPERR_OFPBRC_BAD_LEN;
     }
-
+    VLOG_INFO("++++++zq ofpacts_pull_openflow_actions__, before ofpacts_decode_pof in OF1.0");
     error = ofpacts_decode(actions, actions_len, version, vl_mff_map,
                            ofpacts_tlv_bitmap, ofpacts);
     if (!error) {
@@ -7996,6 +8090,95 @@ ofpacts_pull_openflow_actions__(struct ofpbuf *openflow,
     }
     if (error) {
         ofpbuf_clear(ofpacts);
+    }
+    return error;
+}
+
+static enum ofperr
+ofpacts_pull_openflow_pof_actions__(struct ofpbuf *openflow,
+                                unsigned int actions_len,
+                                enum ofp_version version,
+                                uint32_t allowed_ovsinsts,
+                                struct ofpbuf *ofpacts,
+                                enum ofpact_type outer_action,
+                                const struct vl_mff_map *vl_mff_map,
+                                uint64_t *ofpacts_tlv_bitmap)
+{
+    const struct ofp_action_header *actions;
+    size_t orig_size = ofpacts->size;
+    enum ofperr error;
+
+    if (actions_len % OFP_ACTION_ALIGN != 0) {
+        VLOG_WARN_RL(&rl, "OpenFlow message actions length %u is not a "
+                          "multiple of %d", actions_len, OFP_ACTION_ALIGN);
+        return OFPERR_OFPBRC_BAD_LEN;
+    }
+
+    actions = ofpbuf_try_pull(openflow, actions_len);
+    if (actions == NULL) {
+        VLOG_WARN_RL(&rl, "OpenFlow message actions length %u exceeds "
+                          "remaining message length (%"PRIu32")",
+                     actions_len, openflow->size);
+        return OFPERR_OFPBRC_BAD_LEN;
+    }
+
+    VLOG_INFO("++++++tsf ofpacts_pull_openflow_actions__, before ofpacts_decode in OF1.0");
+    error = ofpacts_decode_pof(actions, actions_len, version,
+                               vl_mff_map,ofpacts_tlv_bitmap, ofpacts);
+    /*error = ofpacts_decode_pof1(actions, actions_len, version, ofpacts);*/  /* tsf */
+    if (error) {
+        ofpacts->size = orig_size;
+        return error;
+    }
+
+    error = ofpacts_verify(ofpacts->data, ofpacts->size, version,
+                           allowed_ovsinsts,outer_action, NULL);
+    if (error) {
+        ofpacts->size = orig_size;
+    }
+    return error;
+}
+
+/* be called by ofputil_pull_ofp11_group_mod(). */
+static enum ofperr
+ofpacts_pull_pof_actions__(struct ofpbuf *openflow,
+                           unsigned int actions_len,
+                           enum ofp_version version,
+                           uint32_t allowed_ovsinsts,
+                           struct ofpbuf *ofpacts,
+                           enum ofpact_type outer_action)
+{
+    const struct ofp_action_header *actions;
+    size_t orig_size = ofpacts->size;
+    enum ofperr error;
+
+    if (actions_len % OFP_ACTION_ALIGN != 0) {
+        VLOG_WARN_RL(&rl, "OpenFlow message actions length %u is not a "
+                          "multiple of %d", actions_len, OFP_ACTION_ALIGN);
+        return OFPERR_OFPBRC_BAD_LEN;
+    }
+
+    actions = ofpbuf_try_pull(openflow, actions_len);
+    if (actions == NULL) {
+        VLOG_WARN_RL(&rl, "OpenFlow message actions length %u exceeds "
+                          "remaining message length (%"PRIu32")",
+                     actions_len, openflow->size);
+        return OFPERR_OFPBRC_BAD_LEN;
+    }
+
+    VLOG_INFO("++++++tsf ofpacts_pull_pof_actions__, before ofpacts_decode in POF");
+    error = ofpacts_decode_pof1(actions, actions_len, version, NULL,
+                                NULL, ofpacts);
+    /*error = ofpacts_decode_pof1(actions, actions_len, version, ofpacts);*/  /* tsf */
+    if (error) {
+        ofpacts->size = orig_size;
+        return error;
+    }
+
+    error = ofpacts_verify(ofpacts->data, ofpacts->size, version, allowed_ovsinsts,
+                           outer_action, NULL);
+    if (error) {
+        ofpacts->size = orig_size;
     }
     return error;
 }
@@ -8552,6 +8735,183 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
     *actions_len = ntohs(inst->len) - sizeof *inst;
 }
 
+/*zq*/
+static void
+get_piaa_from_instruction(const struct ofp11_instruction *inst,
+                          const struct pof_instruction_apply_actions **piaa,
+                          uint8_t *action_num)
+{
+    *piaa = ALIGNED_CAST(const struct pof_instruction_apply_actions *, inst + 1);
+    /**action_num = *piaa->action_num;*/
+}
+static void
+get_actions_from_piaa(const struct pof_instruction_apply_actions *piaa,
+                      const struct ofp_action_header **actions,
+                      size_t *actions_len)
+{
+    *actions = ALIGNED_CAST(const struct ofp_action_header *, piaa + 1);
+    /**actions_len = ntohs(*actions->len);*/
+}
+
+static void
+get_oigt_from_instruction(const struct ofp11_instruction *inst,
+                          const struct ofp11_instruction_goto_table **oigt)
+{
+    *oigt = ALIGNED_CAST(const struct ofp11_instruction_goto_table *, inst + 1);
+    /**action_num = *piaa->action_num;*/
+}
+
+enum ofperr
+ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
+                                   unsigned int instructions_len,
+                                   enum ofp_version version,
+                                   const struct vl_mff_map *vl_mff_map,
+                                   uint64_t *ofpacts_tlv_bitmap,
+                                   struct ofpbuf *ofpacts)
+{
+    const struct ofp11_instruction *instructions;
+    const struct ofp11_instruction *insts[N_OVS_INSTRUCTIONS];
+    enum ofperr error;
+
+    ofpbuf_clear(ofpacts);
+    if (version == OFP10_VERSION) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore ofpacts_pull_openflow_actions__  10");
+        return ofpacts_pull_openflow_pof_actions__(openflow, instructions_len,
+                                               version,
+                                               (1u << N_OVS_INSTRUCTIONS) - 1,
+                                               ofpacts, 0, vl_mff_map, ofpacts_tlv_bitmap);
+    }
+
+    if (instructions_len % OFP11_INSTRUCTION_ALIGN != 0) {
+        VLOG_WARN_RL(&rl, "OpenFlow message instructions length %u is not a "
+                          "multiple of %d",
+                     instructions_len, OFP11_INSTRUCTION_ALIGN);
+        error = OFPERR_OFPBIC_BAD_LEN;
+        goto exit;
+    }
+
+    instructions = ofpbuf_try_pull(openflow, instructions_len);
+    VLOG_INFO("++++++zq_pof ofpacts_pull_openflow_instructions: ofpbuf_try_pull: instruction_len: %d", instructions_len);
+    if (instructions == NULL) {
+        VLOG_WARN_RL(&rl, "OpenFlow message instructions length %u exceeds "
+                          "remaining message length (%"PRIu32")",
+                     instructions_len, openflow->size);
+        error = OFPERR_OFPBIC_BAD_LEN;
+        goto exit;
+    }
+
+    error = decode_openflow11_instructions(
+            instructions, instructions_len / OFP11_INSTRUCTION_ALIGN, version,
+            insts);
+
+    if (error) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: error decode_openflow11_instructions");
+        goto exit;
+    }
+
+    if (insts[OVSINST_OFPIT13_METER]) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT13_METER");
+        const struct ofp13_instruction_meter *oim;
+        struct ofpact_meter *om;
+
+        oim = ALIGNED_CAST(const struct ofp13_instruction_meter *,
+                           insts[OVSINST_OFPIT13_METER]);
+
+        om = ofpact_put_METER(ofpacts);
+        om->meter_id = ntohl(oim->meter_id);
+    }
+    if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_APPLY_ACTIONS");
+        const struct pof_instruction_apply_actions *piaa;
+        uint8_t action_num;
+        get_piaa_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
+                                  &piaa, &action_num);
+        action_num = piaa->action_num;
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: action_num: %d", action_num);
+
+        const struct ofp_action_header *actions;
+        size_t actions_len;
+        get_actions_from_piaa(piaa, &actions, &actions_len);
+        actions_len = POF_MAX_ACTION_LENGTH * action_num;
+        /*get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
+                                     &actions, &actions_len);*/
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: after get_actions_from_instruction");
+        error = ofpacts_decode_pof1(actions, actions_len, version, vl_mff_map,
+                                    ofpacts_tlv_bitmap, ofpacts);
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: after ofpacts_decode_pof1");
+        if (error) {
+            VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: error ofpacts_decode_pof1");
+            goto exit;
+        }
+
+    }
+    if (insts[OVSINST_OFPIT11_CLEAR_ACTIONS]) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_CLEAR_ACTIONS");
+        instruction_get_OFPIT11_CLEAR_ACTIONS(
+                insts[OVSINST_OFPIT11_CLEAR_ACTIONS]);
+        ofpact_put_CLEAR_ACTIONS(ofpacts);
+    }
+    if (insts[OVSINST_OFPIT11_WRITE_ACTIONS]) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_WRITE_ACTIONS");
+        struct ofpact_nest *on;
+        const struct ofp_action_header *actions;
+        size_t actions_len;
+        size_t start = ofpacts->size;
+        ofpact_put(ofpacts, OFPACT_WRITE_ACTIONS,
+                   offsetof(struct ofpact_nest, actions));
+        get_actions_from_instruction(insts[OVSINST_OFPIT11_WRITE_ACTIONS],
+                                     &actions, &actions_len);
+        error = ofpacts_decode_for_action_set(actions, actions_len,
+                                              version,vl_mff_map,
+                                              ofpacts_tlv_bitmap,ofpacts);
+        if (error) {
+            goto exit;
+        }
+        on = ofpbuf_at_assert(ofpacts, start, sizeof *on);
+        on->ofpact.len = ofpacts->size - start;
+    }
+    if (insts[OVSINST_OFPIT11_WRITE_METADATA]) {
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_WRITE_METADATA");
+        const struct ofp11_instruction_write_metadata *oiwm;
+        struct ofpact_metadata *om;
+
+        oiwm = ALIGNED_CAST(const struct ofp11_instruction_write_metadata *,
+                            insts[OVSINST_OFPIT11_WRITE_METADATA]);
+
+        om = ofpact_put_WRITE_METADATA(ofpacts);
+        om->metadata = oiwm->metadata;
+        om->mask = oiwm->metadata_mask;
+    }
+    if (insts[OVSINST_OFPIT11_GOTO_TABLE]) {
+        VLOG_INFO("+++++++++++sqy ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_GOTO_TABLE");
+        const struct ofp11_instruction_goto_table *oigt;
+        struct ofpact_goto_table *ogt;
+        get_oigt_from_instruction(insts[OVSINST_OFPIT11_GOTO_TABLE],&oigt);
+        /*oigt = instruction_get_OFPIT11_GOTO_TABLE(
+            insts[OVSINST_OFPIT11_GOTO_TABLE]);*/
+        VLOG_INFO("gototable oigt:table_id=%d,match_num=%d,offset=%d,type=%d,len=%d",oigt->table_id,oigt->match_field_num,oigt->packet_offset,oigt->type,oigt->len);
+        /*ogt = ofpact_put_GOTO_TABLE(ofpacts);*/
+        ofpacts->header = ofpbuf_put_uninit(ofpacts, 8);
+        ogt = ofpacts->header;
+        ofpact_init(ogt, OFPACT_GOTO_TABLE, 8);
+        ogt->table_id = oigt->table_id;
+        /*ogt->ofpact.type=ntohs(instructions->type);
+        ogt->ofpact.len=ntohs(instructions->len);*/
+        ogt->packet_offset=oigt->packet_offset;
+        ogt->match_field_num=oigt->match_field_num;
+        VLOG_INFO("gototable ogt:table_id=%d,type=%d,len=%d",ogt->table_id,ogt->ofpact.type,ogt->ofpact.len);
+    }
+
+    error = ofpacts_verify(ofpacts->data, ofpacts->size, version,
+                           (1u << N_OVS_INSTRUCTIONS) - 1, 0, NULL);
+    VLOG_INFO("+++++++++++sqy ofpacts_pull_openflow_instructions: after ofpacts_verify");
+    exit:
+    if (error) {
+        ofpbuf_clear(ofpacts);
+    }
+    return error;
+}
+
 enum ofperr
 ofpacts_pull_openflow_instructions(struct ofpbuf *openflow,
                                    unsigned int instructions_len,
@@ -8566,6 +8926,7 @@ ofpacts_pull_openflow_instructions(struct ofpbuf *openflow,
 
     ofpbuf_clear(ofpacts);
     if (version == OFP10_VERSION) {
+        VLOG_INFO("+++++++++++zq ofpacts_pull_openflow_instructions: befoore ofpacts_pull_openflow_actions__  10");
         return ofpacts_pull_openflow_actions__(openflow, instructions_len,
                                                version,
                                                (1u << N_OVS_INSTRUCTIONS) - 1,
@@ -8582,6 +8943,7 @@ ofpacts_pull_openflow_instructions(struct ofpbuf *openflow,
     }
 
     instructions = ofpbuf_try_pull(openflow, instructions_len);
+    VLOG_INFO("++++++zq ofpacts_pull_openflow_instructions: ofpbuf_try_pull: instruction_len: %d", instructions_len);
     if (instructions == NULL) {
         VLOG_WARN_RL(&rl, "OpenFlow message instructions length %u exceeds "
                      "remaining message length (%"PRIu32")",
@@ -9865,6 +10227,65 @@ ofpact_pull_raw(struct ofpbuf *buf, enum ofp_version ofp_version,
         }
     }
 
+    ofpbuf_pull(buf, length);
+
+    return 0;
+}
+
+static enum ofperr
+ofpact_pof_pull_raw(struct ofpbuf *buf, enum ofp_version ofp_version,
+                    enum ofp_raw_action_type *raw, uint64_t *arg)
+{
+    const struct ofp_action_header *oah = buf->data;
+    const struct ofpact_raw_instance *action;
+    unsigned int length;
+    enum ofperr error;
+
+    *raw = *arg = 0;
+    VLOG_INFO("++++++zq ofpact_pull_raw: before ofpact_decode_raw");
+    error = ofpact_decode_raw(ofp_version, oah, buf->size, &action);
+    VLOG_INFO("++++++zq ofpact_pull_raw: after ofpact_decode_raw");
+    if (error) {
+        return error;
+    }
+
+    /* if (action->deprecation) {
+         VLOG_INFO_RL(&rl, "%s is deprecated in %s (%s)",
+                      action->name, ofputil_version_to_string(ofp_version),
+                      action->deprecation);
+     }*/
+
+    length = ntohs(oah->len);
+    if (length > buf->size) {
+        VLOG_WARN_RL(&rl, "OpenFlow action %s length %u exceeds action buffer "
+                          "length %"PRIu32, action->name, length, buf->size);
+        return OFPERR_OFPBAC_BAD_LEN;
+    }
+    if (length < action->min_length || length > action->max_length) {
+        VLOG_WARN_RL(&rl, "OpenFlow action %s length %u not in valid range "
+                          "[%hu,%hu]", action->name, length,
+                     action->min_length, action->max_length);
+        return OFPERR_OFPBAC_BAD_LEN;
+    }
+    if (length % 8) {
+        VLOG_WARN_RL(&rl, "OpenFlow action %s length %u is not a multiple "
+                          "of 8", action->name, length);
+        return OFPERR_OFPBAC_BAD_LEN;
+    }
+
+    *raw = action->raw;
+    *arg = 0;
+    if (action->arg_len) {
+        const uint8_t *p;
+        int i;
+
+        p = ofpbuf_at_assert(buf, action->arg_ofs, action->arg_len);
+        for (i = 0; i < action->arg_len; i++) {
+            *arg = (*arg << 8) | p[i];
+        }
+    }
+
+    /*ofpbuf_pull(buf, POF_MAX_ACTION_LENGTH);*/
     ofpbuf_pull(buf, length);
 
     return 0;

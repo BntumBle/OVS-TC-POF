@@ -33,10 +33,14 @@ struct ofputil_role_request {
 
 enum ofperr ofputil_decode_role_message(const struct ofp_header *,
                                         struct ofputil_role_request *);
+enum ofperr ofputil_decode_pof_role_message(const struct ofp_header *,
+                                            struct ofputil_role_request *);
 void ofputil_format_role_message(struct ds *,
                                  const struct ofputil_role_request *);
 struct ofpbuf *ofputil_encode_role_reply(const struct ofp_header *,
                                          const struct ofputil_role_request *);
+struct ofpbuf *ofputil_encode_pof_role_reply(const struct ofp_header *,
+                                             const struct ofputil_role_request *);
 
 /* Abstract OFPT_ROLE_STATUS. */
 struct ofputil_role_status {

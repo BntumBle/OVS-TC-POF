@@ -28,6 +28,7 @@
 
 struct ds;
 struct match;
+struct match_x;
 struct ofpact_reg_move;
 struct ofpact_reg_load;
 struct ofpact_stack;
@@ -53,6 +54,9 @@ enum ofperr nx_pull_match(struct ofpbuf *, unsigned int match_len,
                           struct match *, ovs_be64 *cookie,
                           ovs_be64 *cookie_mask, bool pipeline_fields_only,
                           const struct tun_table *, const struct vl_mff_map *);
+enum ofperr nx_pull_pof_match(struct ofpbuf *, unsigned int match_len, struct match_x *,
+                              ovs_be64 *cookie, ovs_be64 *cookie_mask,
+                              const struct tun_table *, const struct vl_mff_map *);
 enum ofperr nx_pull_match_loose(struct ofpbuf *, unsigned int match_len,
                                 struct match *, ovs_be64 *cookie,
                                 ovs_be64 *cookie_mask,

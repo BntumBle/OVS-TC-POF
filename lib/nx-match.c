@@ -594,6 +594,67 @@ nx_pull_raw(const uint8_t *p, unsigned int match_len, bool strict,
 }
 
 static enum ofperr
+nx_pull_pof_raw(const uint8_t *p, unsigned int match_len, bool strict,
+                struct match_x *match, ovs_be64 *cookie, ovs_be64 *cookie_mask,
+                const struct tun_table *tun_table, const struct vl_mff_map *vl_mff_map)
+{
+    ovs_assert((cookie != NULL) == (cookie_mask != NULL));
+    pof_match_init_catchall(match);
+    if (cookie) {
+        *cookie = *cookie_mask = htonll(0);
+    }
+
+    struct ofpbuf b = ofpbuf_const_initializer(p, match_len);
+    while (b.size) {
+        const uint8_t *pos = b.data;
+        const struct mf_field *field;
+        union mf_value value;
+        union mf_value mask;
+        enum ofperr error;
+        /*VLOG_INFO("+++++++++++sqy nx_pull_pof_raw: nx_pull_match_entry times+++++++++++++ ");*/
+        error = nx_pull_match_entry(&b, cookie != NULL, vl_mff_map, &field, &value, &mask);
+        if (error) {
+            VLOG_INFO("+++++++++++zq nx_pull_pof_raw: while error1 ");
+            if (error == OFPERR_OFPBMC_BAD_FIELD && !strict) {
+                continue;
+            }
+        } else if (!field) {
+            if (!cookie) {
+                VLOG_INFO("+++++++++++zq nx_pull_pof_raw: while error2 ");
+                error = OFPERR_OFPBMC_BAD_FIELD;
+            } else if (*cookie_mask) {
+                VLOG_INFO("+++++++++++zq nx_pull_pof_raw: while error3 ");
+                error = OFPERR_OFPBMC_DUP_FIELD;
+            } else {
+                *cookie = value.be64;
+                *cookie_mask = mask.be64;
+            }
+        } else if (!pof_mf_is_all_wild(field, &match->wc)) {
+            VLOG_INFO("+++++++++++zq nx_pull_pof_raw: while error4 ");
+            error = OFPERR_OFPBMC_DUP_FIELD;
+        } else {
+            char *err_str;
+            pof_mf_set(field, &value, &mask, match, &err_str);
+            if (err_str) {
+                VLOG_DBG_RL(&rl, "error parsing OXM at offset %"PRIdPTR" "
+                                                                       "within match (%s)", pos - p, err_str);
+                free(err_str);
+                return OFPERR_OFPBMC_BAD_VALUE;
+            }
+        }
+
+        if (error) {
+            VLOG_DBG_RL(&rl, "error parsing OXM at offset %"PRIdPTR" "
+                                                                   "within match (%s)", pos -
+                                                                                        p, ofperr_to_string(error));
+            return error;
+        }
+    }
+
+    return 0;
+}
+
+static enum ofperr
 nx_pull_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
                 bool pipeline_fields_only, struct match *match,
                 ovs_be64 *cookie, ovs_be64 *cookie_mask,
@@ -615,6 +676,30 @@ nx_pull_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
     return nx_pull_raw(p, match_len, strict, pipeline_fields_only, match,
                        cookie, cookie_mask, tun_table, vl_mff_map);
 }
+
+static enum ofperr
+nx_pull_pof_match__(struct ofpbuf *b, unsigned int match_len, bool strict,
+                    struct match_x *match,
+                    ovs_be64 *cookie, ovs_be64 *cookie_mask,
+                    const struct tun_table *tun_table,
+                    const struct vl_mff_map *vl_mff_map)
+{
+    uint8_t *p = NULL;
+
+    if (match_len) {
+        p = ofpbuf_try_pull(b, ROUND_UP(match_len, 8));
+        if (!p) {
+            VLOG_DBG_RL(&rl, "nx_match length %u, rounded up to a "
+                             "multiple of 8, is longer than space in message (max "
+                             "length %"PRIu32")", match_len, b->size);
+            return OFPERR_OFPBMC_BAD_LEN;
+        }
+    }
+
+    return nx_pull_pof_raw(p, match_len, strict, match, cookie, cookie_mask,
+                           tun_table, vl_mff_map);
+}
+
 
 /* Parses the nx_match formatted match description in 'b' with length
  * 'match_len'.  Stores the results in 'match'.  If 'cookie' and 'cookie_mask'
@@ -641,6 +726,14 @@ nx_pull_match(struct ofpbuf *b, unsigned int match_len, struct match *match,
                            cookie, cookie_mask, tun_table, vl_mff_map);
 }
 
+enum ofperr
+nx_pull_pof_match(struct ofpbuf *b, unsigned int match_len, struct match_x *match,
+                  ovs_be64 *cookie, ovs_be64 *cookie_mask,
+                  const struct tun_table *tun_table, const struct vl_mff_map *vl_mff_map)
+{
+    return nx_pull_pof_match__(b, match_len, true, match, cookie, cookie_mask,
+                               tun_table, vl_mff_map);
+}
 /* Behaves the same as nx_pull_match(), but skips over unknown NXM headers,
  * instead of failing with an error, and does not check for field
  * prerequisites. */

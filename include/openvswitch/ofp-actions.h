@@ -1108,11 +1108,13 @@ struct ofpact_mpls_ttl {
 
 /* OFPACT_GOTO_TABLE
  *
- * Used for OFPIT11_GOTO_TABLE */
+ * Used for OFPIT11_GOTO_TABLE ;zq*/
 struct ofpact_goto_table {
     OFPACT_PADDED_MEMBERS(
         struct ofpact ofpact;
         uint8_t table_id;
+        uint8_t match_field_num;
+        ovs_be16 packet_offset;
     );
 };
 
@@ -1184,6 +1186,12 @@ ofpacts_pull_openflow_instructions(struct ofpbuf *openflow,
                                    const struct vl_mff_map *vl_mff_map,
                                    uint64_t *ofpacts_tlv_bitmap,
                                    struct ofpbuf *ofpacts);
+enum ofperr ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
+                                               unsigned int instructions_len,
+                                               enum ofp_version version,
+                                               const struct vl_mff_map *vl_mff_map,
+                                               uint64_t *ofpacts_tlv_bitmap,
+                                               struct ofpbuf *ofpacts);
 
 struct ofpact_check_params {
     /* Input. */

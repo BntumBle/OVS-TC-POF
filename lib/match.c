@@ -26,6 +26,7 @@
 #include "packets.h"
 #include "tun-metadata.h"
 #include "openvswitch/nsh.h"
+#include "openvswitch/vlog.h"
 
 /* Converts the flow in 'flow' into a match in 'match', with the given
  * 'wildcards'. */
@@ -63,6 +64,13 @@ match_init_catchall(struct match *match)
     memset(&match->tun_md, 0, sizeof match->tun_md);
 }
 
+void
+pof_match_init_catchall(struct match_x *match)
+{
+    memset(&match->flow, 0, sizeof match->flow);
+    pof_flow_wildcards_init_catchall(&match->wc);
+    memset(&match->tun_md, 0, sizeof match->tun_md);
+}
 /* For each bit or field wildcarded in 'match', sets the corresponding bit or
  * field in 'flow' to all-0-bits.  It is important to maintain this invariant
  * in a match that might be inserted into a classifier.
@@ -109,6 +117,62 @@ match_set_reg(struct match *match, unsigned int reg_idx, uint32_t value)
 {
     match_set_reg_masked(match, reg_idx, value, UINT32_MAX);
 }
+
+/*zq*/
+void
+pof_match_set_field_id(struct match_x *match, unsigned int field_id_idx, ovs_be16 value)
+{
+    /*match_set_reg_masked(match, reg_idx, value, UINT32_MAX);*/
+    ovs_assert(field_id_idx < POF_N_FIELD_IDS);
+    match->wc.masks.field_id[field_id_idx] = OVS_BE16_MAX;
+    match->flow.field_id[field_id_idx] = value & OVS_BE16_MAX;
+}
+
+void
+pof_match_set_offset(struct match_x *match, unsigned int offset_idx, ovs_be16 value)
+{
+    /*match_set_reg_masked(match, reg_idx, value, UINT32_MAX);*/
+    ovs_assert(offset_idx < POF_N_OFFSETS);
+    match->wc.masks.offset[offset_idx] = OVS_BE16_MAX;
+    match->flow.offset[offset_idx] = value & OVS_BE16_MAX;
+}
+
+void
+pof_match_set_length(struct match_x *match, unsigned int length_idx, ovs_be16 value)
+{
+    /*match_set_reg_masked(match, reg_idx, value, UINT32_MAX);*/
+    ovs_assert(length_idx < POF_N_LENGTHS);
+    match->wc.masks.len[length_idx] = OVS_BE16_MAX;
+    match->flow.len[length_idx] = value & OVS_BE16_MAX;
+}
+
+void
+pof_match_set_value(struct match_x *match, unsigned int value_idx, const struct in6_addr *value)
+{
+    /*match_set_reg_masked(match, reg_idx, value, UINT32_MAX);*/
+    int i=0;
+    ovs_assert(value_idx < POF_N_VALUES);
+    for(i=0; i<POF_MAX_FIELD_LENGTH_IN_BYTE;i++){
+        match->wc.masks.value[value_idx][i] =*((uint8_t*)(&in6addr_exact)+i);
+        match->flow.value[value_idx][i] = *((uint8_t*)value+i);
+        /*VLOG_INFO("pof_match_set_value value [%d]=%d",i,*((uint8_t*)value+i)); zq:error*/
+    }
+}
+
+void
+pof_match_set_value_masked(struct match_x *match, unsigned int value_idx,
+                           const struct in6_addr *value,const struct in6_addr *mask)
+{
+    /*match_set_reg_masked(match, reg_idx, value, UINT32_MAX);*/
+    int i=0;
+    ovs_assert(value_idx < POF_N_VALUES);
+    for(i=0; i<POF_MAX_FIELD_LENGTH_IN_BYTE;i++){
+        match->wc.masks.value[value_idx][i] =*((uint8_t*) mask+i);
+        match->flow.value[value_idx][i] = *((uint8_t*)value+i);
+    }
+}
+/*zq*/
+
 
 void
 match_set_reg_masked(struct match *match, unsigned int reg_idx,
@@ -1751,7 +1815,17 @@ match_print(const struct match *match,
     puts(s);
     free(s);
 }
-
+
+void
+pof_minimatch_init(struct minimatch *dst, const struct match_x *src)
+{
+    struct miniflow tmp;
+    pof_miniflow_map_init(&tmp, &src->flow);
+    /* Allocate two consecutive miniflows. */
+    miniflow_alloc(dst->flows, 2, &tmp);
+    pof_miniflow_init(dst->flow, &src->flow);
+    pof_minimask_init(dst->mask, &src->wc);
+}
 /* Initializes 'dst' as a copy of 'src'.  The caller must eventually free 'dst'
  * with minimatch_destroy(). */
 void

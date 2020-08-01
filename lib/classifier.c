@@ -195,6 +195,15 @@ cls_rule_init_from_minimatch(struct cls_rule *rule,
     minimatch_clone(CONST_CAST(struct minimatch *, &rule->match), match);
 }
 
+void
+pof_cls_rule_init(struct cls_rule *rule, const struct match_x *match, int priority)
+{
+    cls_rule_init__(rule, priority);
+//    VLOG_INFO("+++++++++++sqy add_pof_flow_init:  before pof_minimatch_init ");
+    pof_minimatch_init(CONST_CAST(struct minimatch *, &rule->match), match);
+//    VLOG_INFO("+++++++++++sqy add_pof_flow_init:  after pof_minimatch_init ");
+}
+
 /* Initializes 'dst' as a copy of 'src'.
  *
  * The caller must eventually destroy 'dst' with cls_rule_destroy(). */
