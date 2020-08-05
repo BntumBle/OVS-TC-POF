@@ -316,7 +316,7 @@ enum ofp11_instruction_type {
     OFPIT11_EXPERIMENTER = 0xFFFF  /* Experimenter instruction */
 };
 
-#define OFP11_INSTRUCTION_ALIGN 8
+#define OFP11_INSTRUCTION_ALIGN 304
 
 /* Generic ofp_instruction structure. */
 struct ofp11_instruction {
@@ -430,29 +430,29 @@ struct ofp11_flow_mod {
     ovs_be16 slotID;            /* For multiple slots. */
     uint8_t pad2[2];   /*8 bytes aligned*/
     struct pof_match_x match[8];
-    /*ovs_be64 cookie;             /* Opaque controller-issued identifier. */
-    /*ovs_be64 cookie_mask;        /* Mask used to restrict the cookie bits
+    /*ovs_be64 cookie;              Opaque controller-issued identifier. */
+    /*ovs_be64 cookie_mask;         Mask used to restrict the cookie bits
                                     that must match when the command is
                                     OFPFC_MODIFY* or OFPFC_DELETE*. A value
                                     of 0 indicates no restriction. */
     /* Flow actions. */
-    /*uint8_t table_id;            /* ID of the table to put the flow in */
-    /*uint8_t command;             /* One of OFPFC_*. */
-    /*ovs_be16 idle_timeout;       /* Idle time before discarding (seconds). */
-    /*ovs_be16 hard_timeout;       /* Max time before discarding (seconds). */
-    /*ovs_be16 priority;           /* Priority level of flow entry. */
-    /*ovs_be32 buffer_id;          /* Buffered packet to apply to (or -1).
+    /*uint8_t table_id;            ID of the table to put the flow in */
+    /*uint8_t command;              One of OFPFC_*. */
+    /*ovs_be16 idle_timeout;        Idle time before discarding (seconds). */
+    /*ovs_be16 hard_timeout;        Max time before discarding (seconds). */
+    /*ovs_be16 priority;            Priority level of flow entry. */
+    /*ovs_be32 buffer_id;           Buffered packet to apply to (or -1).
                                     Not meaningful for OFPFC_DELETE*. */
-    /*ovs_be32 out_port;           /* For OFPFC_DELETE* commands, require
+    /*ovs_be32 out_port;            For OFPFC_DELETE* commands, require
                                     matching entries to include this as an
                                     output port. A value of OFPP_ANY
                                     indicates no restriction. */
-    /*ovs_be32 out_group;          /* For OFPFC_DELETE* commands, require
+    /*ovs_be32 out_group;           For OFPFC_DELETE* commands, require
                                     matching entries to include this as an
                                     output group. A value of OFPG_ANY
                                     indicates no restriction. */
-    /*ovs_be16 flags;              /* One of OFPFF_*. */
-    /*ovs_be16 importance;         /* Eviction precedence (OF1.4+). */
+    /*ovs_be16 flags;               One of OFPFF_*. */
+    /*ovs_be16 importance;          Eviction precedence (OF1.4+). */
     /* Followed by an ofp11_match structure. */
     /* Followed by an instruction set. */
 };

@@ -847,7 +847,9 @@ decode_OFPAT_RAW10_ADD_FIELD(const struct ofp10_action_add_field *oaaf,
     oaf->tag_len = ntohl(oaaf->tag_len);
     memcpy(oaf->tag_value, oaaf->tag_value, sizeof(oaaf->tag_value));
 
-    VLOG_INFO("++++++zq decode_OFPAT_RAW10_ADD_FIELD: start");
+    VLOG_INFO("decode_OFPAT_RAW10_ADD_FIELD:oaf->tag_id=%d,tag_pos=%d,tag_len=%d,tag_value_1=%d", oaf->tag_id, oaf->tag_pos, oaf->tag_len, oaf->tag_value[0]);
+    VLOG_INFO("++++++zq decode_OFPAT_RAW10_ADD_FIELD: end");
+
 
     return 0;
 }
@@ -8643,6 +8645,17 @@ instruction_next(const struct ofp11_instruction *inst)
             ((uint8_t *) inst + ntohs(inst->len)));
 }
 
+/*zq*/
+static inline bool
+pof_instruction_is_valid(const struct ofp11_instruction *inst,
+                         size_t n_instructions)
+{
+    uint16_t len = 304;
+    return (!(len % OFP11_INSTRUCTION_ALIGN)
+            && len >= OFP11_INSTRUCTION_ALIGN
+            && len / OFP11_INSTRUCTION_ALIGN <= n_instructions);
+}
+
 static inline bool
 instruction_is_valid(const struct ofp11_instruction *inst,
                      size_t n_instructions)
@@ -8656,17 +8669,16 @@ instruction_is_valid(const struct ofp11_instruction *inst,
 /* This macro is careful to check for instructions with bad lengths. */
 #define INSTRUCTION_FOR_EACH(ITER, LEFT, INSTRUCTIONS, N_INSTRUCTIONS)  \
     for ((ITER) = (INSTRUCTIONS), (LEFT) = (N_INSTRUCTIONS);            \
-         (LEFT) > 0 && instruction_is_valid(ITER, LEFT);                \
-         ((LEFT) -= (ntohs((ITER)->len)                                 \
-                     / sizeof(struct ofp11_instruction)),               \
+         (LEFT) > 0 && pof_instruction_is_valid(ITER, LEFT);                \
+         ((LEFT) --,               \
           (ITER) = instruction_next(ITER)))
 
 static enum ofperr
 decode_openflow11_instruction(const struct ofp11_instruction *inst,
                               enum ovs_instruction_type *type)
 {
-    uint16_t len = ntohs(inst->len);
-
+    uint16_t len = 304;
+    VLOG_INFO("+++++++++++zq decode_openflow11_instruction:start");
     switch (inst->type) {
     case CONSTANT_HTONS(OFPIT11_EXPERIMENTER):
         return OFPERR_OFPBIC_BAD_EXPERIMENTER;
@@ -8696,13 +8708,14 @@ decode_openflow11_instructions(const struct ofp11_instruction insts[],
 {
     const struct ofp11_instruction *inst;
     size_t left;
-
+    VLOG_INFO("+++++++++++zq decode_openflow11_instructions: before decode_openflow11_instruction, n_insts: %d", n_insts);
     memset(out, 0, N_OVS_INSTRUCTIONS * sizeof *out);
     INSTRUCTION_FOR_EACH (inst, left, insts, n_insts) {
         enum ovs_instruction_type type;
         enum ofperr error;
 
         error = decode_openflow11_instruction(inst, &type);
+        VLOG_INFO("+++++++++++zq decode_openflow11_instructions: after decode_openflow11_instruction");
         if (error) {
             return error;
         }

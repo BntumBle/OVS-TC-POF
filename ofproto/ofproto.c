@@ -8868,7 +8868,9 @@ handle_single_part_openflow(struct ofconn *ofconn, const struct ofp_header *oh,
 
     case OFPTYPE_GET_CONFIG_REQUEST:
         handle_get_config_request(ofconn, oh);
+        VLOG_INFO("+++++++++++zq: enter handle_flow_table_resource");
         handle_flow_table_resource(ofconn, oh);
+        VLOG_INFO("+++++++++++zq: leave handle_flow_table_resource");
         return handle_port_status(ofconn, oh);
 
     case OFPTYPE_SET_CONFIG:
@@ -8881,13 +8883,17 @@ handle_single_part_openflow(struct ofconn *ofconn, const struct ofp_header *oh,
         return handle_port_mod(ofconn, oh);
 
     case OFPTYPE_FLOW_MOD:
+        VLOG_INFO("+++++++++++zq: enter handle_flow_mod");
         return handle_flow_mod(ofconn, oh);/*zq*/
+        VLOG_INFO("+++++++++++zq: leave handle_flow_mod");
 
     case OFPTYPE_GROUP_MOD:
         return handle_group_mod(ofconn, oh);
 
     case OFPTYPE_TABLE_MOD:
+        VLOG_INFO("+++++++++++zq: enter handle_table_mod");
         return handle_table_mod(ofconn, oh);
+        VLOG_INFO("+++++++++++zq: leave handle_table_mod");
 
     case OFPTYPE_METER_MOD:
         return handle_meter_mod(ofconn, oh);

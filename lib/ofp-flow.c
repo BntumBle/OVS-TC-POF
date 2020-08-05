@@ -531,7 +531,7 @@ ofputil_decode_flow_mod_pof(struct ofputil_pof_flow_mod *fm,
 
     error = ofputil_decode_flow_mod_flags(raw_flags, fm->command,
                                           oh->version, &fm->flags);
-    VLOG_INFO("+++++++++++sqy ofputil_decode_flow_mod_pof: after ofputil_decode_flow_mod_flags");
+    VLOG_INFO("+++++++++++zq ofputil_decode_flow_mod_pof: after ofputil_decode_flow_mod_flags");
     if (error) {
         return error;
     }
