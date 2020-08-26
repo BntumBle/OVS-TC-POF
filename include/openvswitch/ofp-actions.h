@@ -331,12 +331,14 @@ struct ofpact_modify_field {
  * Used for OFPAT10_ADD_FIELD.
  * */
 struct ofpact_add_field {
+    OFPACT_PADDED_MEMBERS(
     struct ofpact ofpact;
 
     uint16_t tag_id;
     uint16_t tag_pos;
     uint32_t tag_len;
     uint8_t tag_value[POF_MAX_FIELD_LENGTH_IN_BYTE];
+    );
 };
 
 /* tsf: OFPACT_DELETE_FIELD.

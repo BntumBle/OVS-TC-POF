@@ -570,18 +570,32 @@ struct ofp10_action_output {
 };
 OFP_ASSERT(sizeof(struct ofp10_action_output) == 8);
 
+/*zq*/
+struct ofp11_action_output {
+    ovs_be16 type;                  /* OFPAT_VENDOR. */
+    ovs_be16 len;                   /* Length is 32. */
+    uint8_t portId_type;		/* 0:immediate value, 1:packet/metadata field. */
+    uint8_t pad;
+    ovs_be16 metadata_offset;	/* Metadata to be outputed, bit unit. */
+    ovs_be16 metadata_len;		/* bit unit. */
+    ovs_be16 packet_offset;		/* Packet data to be outputed, byte unit. */
+    ovs_be32 outputPortId;         /* 16-31 bits are slot id, and the least significant
+                                     * 16(0-15) bits are port id.*/
+    uint8_t pad2[8];                   /* Pad to 64 bits. */
+};
+OFP_ASSERT(sizeof(struct ofp11_action_output) == 24);
 /* Action structure for OFPAT_OUTPUT, which sends packets out 'port'.
    * When the 'port' is the OFPP_CONTROLLER, 'max_len' indicates the max
    * number of bytes to send. A 'max_len' of zero means no bytes of the
    * packet should be sent.*/
-struct ofp11_action_output {
+struct ofp11_action_outputt {
     ovs_be16 type;                    /* OFPAT11_OUTPUT. */
     ovs_be16 len;                     /* Length is 16. */
     ovs_be32 port;                    /* Output port. */
     ovs_be16 max_len;                 /* Max length to send to controller. */
     uint8_t pad[6];                   /* Pad to 64 bits. */
 };
-OFP_ASSERT(sizeof(struct ofp11_action_output) == 16);
+OFP_ASSERT(sizeof(struct ofp11_action_outputt) == 16);
 
 static enum ofperr
 decode_OFPAT_RAW10_OUTPUT(const struct ofp10_action_output *oao,
@@ -604,15 +618,18 @@ decode_OFPAT_RAW11_OUTPUT(const struct ofp11_action_output *oao,
 {
     struct ofpact_output *output;
     enum ofperr error;
-
+    VLOG_INFO("+++++++++++zq decode_OFPAT_RAW11_OUTPUT:start");
     output = ofpact_put_OUTPUT(out);
-    output->max_len = ntohs(oao->max_len);
+    /*output->max_len = ntohs(oao->max_len);*/
 
-    error = ofputil_port_from_ofp11(oao->port, &output->port);
+    error = ofputil_port_from_ofp11(oao->outputPortId, &output->port);
+    output->max_len = output->port == OFPP_CONTROLLER ? UINT16_MAX : 0;
+    VLOG_INFO("+++++++++++zq decode_OFPAT_RAW11_OUTPUT:port=%"PRIu16", max_len=%"PRIu16,
+              output->port, output->max_len);
     if (error) {
         return error;
     }
-
+    VLOG_INFO("+++++++++++zq decode_OFPAT_RAW11_OUTPUT:end");
     return ofpact_check_output_port(output->port, OFPP_MAX);
 }
 
@@ -630,8 +647,8 @@ encode_OUTPUT(const struct ofpact_output *output,
         struct ofp11_action_output *oao;
 
         oao = put_OFPAT11_OUTPUT(out);
-        oao->port = ofputil_port_to_ofp11(output->port);
-        oao->max_len = htons(output->max_len);
+        oao->outputPortId = ofputil_port_to_ofp11(output->port);
+        /*oao->max_len = htons(output->max_len);zq*/
     }
 }
 
@@ -847,7 +864,7 @@ decode_OFPAT_RAW10_ADD_FIELD(const struct ofp10_action_add_field *oaaf,
     oaf->tag_len = ntohl(oaaf->tag_len);
     memcpy(oaf->tag_value, oaaf->tag_value, sizeof(oaaf->tag_value));
 
-    VLOG_INFO("decode_OFPAT_RAW10_ADD_FIELD:oaf->tag_id=%d,tag_pos=%d,tag_len=%d,tag_value_1=%d", oaf->tag_id, oaf->tag_pos, oaf->tag_len, oaf->tag_value[0]);
+    VLOG_INFO("decode_OFPAT_RAW10_ADD_FIELD:oaf->tag_id=%d,tag_pos=%d,tag_len=%d,tag_value_1=%d,tag_value_2=%d", oaf->tag_id, oaf->tag_pos, oaf->tag_len, oaf->tag_value[0], oaf->tag_value[1]);
     VLOG_INFO("++++++zq decode_OFPAT_RAW10_ADD_FIELD: end");
 
 
@@ -1420,8 +1437,8 @@ encode_ENQUEUE(const struct ofpact_enqueue *enqueue,
         put_OFPAT_SET_QUEUE(out, ofp_version, enqueue->queue);
 
         struct ofp11_action_output *oao = put_OFPAT11_OUTPUT(out);
-        oao->port = ofputil_port_to_ofp11(enqueue->port);
-        oao->max_len = OVS_BE16_MAX;
+        oao->outputPortId = ofputil_port_to_ofp11(enqueue->port);
+        /*oao->max_len = OVS_BE16_MAX;zq*/
 
         put_NXAST_POP_QUEUE(out);
     }
@@ -7982,8 +7999,8 @@ ofpacts_decode_pof1(const void *actions, size_t actions_len,
             VLOG_INFO("+++++++++++zq ofpacts_decode_pof1: after ofpact_decode");
         }
 
-        if(raw == 2) {
-            VLOG_INFO("++++++tsf ofpacts_pull_pull_openflow_instructions: detect OFPAT_RAW11_DROP.");
+        if(raw == 4) {
+            VLOG_INFO("++++++tsf ofpacts_pull_pull_openflow_instructions: detect OFPAT_RAW11_ADD_FIELD.");
         }
 
         if (error) {
@@ -8680,6 +8697,7 @@ decode_openflow11_instruction(const struct ofp11_instruction *inst,
     uint16_t len = 304;
     VLOG_INFO("+++++++++++zq decode_openflow11_instruction:start");
     switch (inst->type) {
+        VLOG_INFO("+++++++++++zq decode_openflow11_instruction: %d", inst->type);
     case CONSTANT_HTONS(OFPIT11_EXPERIMENTER):
         return OFPERR_OFPBIC_BAD_EXPERIMENTER;
 
@@ -8788,7 +8806,7 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
 
     ofpbuf_clear(ofpacts);
     if (version == OFP10_VERSION) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore ofpacts_pull_openflow_actions__  10");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore ofpacts_pull_openflow_actions__  10");
         return ofpacts_pull_openflow_pof_actions__(openflow, instructions_len,
                                                version,
                                                (1u << N_OVS_INSTRUCTIONS) - 1,
@@ -8804,7 +8822,7 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
     }
 
     instructions = ofpbuf_try_pull(openflow, instructions_len);
-    VLOG_INFO("++++++zq_pof ofpacts_pull_openflow_instructions: ofpbuf_try_pull: instruction_len: %d", instructions_len);
+    VLOG_INFO("++++++zq_pof ofpacts_pull_openflow_pof_instructions: ofpbuf_try_pull: instruction_len: %d", instructions_len);
     if (instructions == NULL) {
         VLOG_WARN_RL(&rl, "OpenFlow message instructions length %u exceeds "
                           "remaining message length (%"PRIu32")",
@@ -8818,12 +8836,12 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
             insts);
 
     if (error) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: error decode_openflow11_instructions");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: error decode_openflow11_instructions");
         goto exit;
     }
 
     if (insts[OVSINST_OFPIT13_METER]) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT13_METER");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT13_METER");
         const struct ofp13_instruction_meter *oim;
         struct ofpact_meter *om;
 
@@ -8834,13 +8852,13 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
         om->meter_id = ntohl(oim->meter_id);
     }
     if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_APPLY_ACTIONS");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT11_APPLY_ACTIONS");
         const struct pof_instruction_apply_actions *piaa;
         uint8_t action_num;
         get_piaa_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
                                   &piaa, &action_num);
         action_num = piaa->action_num;
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: action_num: %d", action_num);
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: action_num: %d", action_num);
 
         const struct ofp_action_header *actions;
         size_t actions_len;
@@ -8848,24 +8866,24 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
         actions_len = POF_MAX_ACTION_LENGTH * action_num;
         /*get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
                                      &actions, &actions_len);*/
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: after get_actions_from_instruction");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: after get_actions_from_instruction, action_num: %d, action_len: %d\n", action_num, actions_len);
         error = ofpacts_decode_pof1(actions, actions_len, version, vl_mff_map,
                                     ofpacts_tlv_bitmap, ofpacts);
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: after ofpacts_decode_pof1");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: after ofpacts_decode_pof1");
         if (error) {
-            VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: error ofpacts_decode_pof1");
+            VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: error ofpacts_decode_pof1");
             goto exit;
         }
 
     }
     if (insts[OVSINST_OFPIT11_CLEAR_ACTIONS]) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_CLEAR_ACTIONS");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT11_CLEAR_ACTIONS");
         instruction_get_OFPIT11_CLEAR_ACTIONS(
                 insts[OVSINST_OFPIT11_CLEAR_ACTIONS]);
         ofpact_put_CLEAR_ACTIONS(ofpacts);
     }
     if (insts[OVSINST_OFPIT11_WRITE_ACTIONS]) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_WRITE_ACTIONS");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT11_WRITE_ACTIONS");
         struct ofpact_nest *on;
         const struct ofp_action_header *actions;
         size_t actions_len;
@@ -8884,7 +8902,7 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
         on->ofpact.len = ofpacts->size - start;
     }
     if (insts[OVSINST_OFPIT11_WRITE_METADATA]) {
-        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_WRITE_METADATA");
+        VLOG_INFO("+++++++++++zq_pof ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT11_WRITE_METADATA");
         const struct ofp11_instruction_write_metadata *oiwm;
         struct ofpact_metadata *om;
 
@@ -8896,7 +8914,7 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
         om->mask = oiwm->metadata_mask;
     }
     if (insts[OVSINST_OFPIT11_GOTO_TABLE]) {
-        VLOG_INFO("+++++++++++sqy ofpacts_pull_openflow_instructions: befoore OVSINST_OFPIT11_GOTO_TABLE");
+        VLOG_INFO("+++++++++++sqy ofpacts_pull_openflow_pof_instructions: befoore OVSINST_OFPIT11_GOTO_TABLE");
         const struct ofp11_instruction_goto_table *oigt;
         struct ofpact_goto_table *ogt;
         get_oigt_from_instruction(insts[OVSINST_OFPIT11_GOTO_TABLE],&oigt);
@@ -8915,11 +8933,14 @@ ofpacts_pull_openflow_pof_instructions(struct ofpbuf *openflow,
         VLOG_INFO("gototable ogt:table_id=%d,type=%d,len=%d",ogt->table_id,ogt->ofpact.type,ogt->ofpact.len);
     }
 
+    VLOG_INFO("+++++++++++zq ofpacts_pull_openflow_instructions: before ofpacts_verify");
+//    ofpacts->size = 56;
     error = ofpacts_verify(ofpacts->data, ofpacts->size, version,
                            (1u << N_OVS_INSTRUCTIONS) - 1, 0, NULL);
-    VLOG_INFO("+++++++++++sqy ofpacts_pull_openflow_instructions: after ofpacts_verify");
+    VLOG_INFO("+++++++++++zq ofpacts_pull_openflow_pof_instructions: after ofpacts_verify");
     exit:
     if (error) {
+        VLOG_INFO("+++++++++++zq ofpacts_pull_openflow_pof_instructions:error");
         ofpbuf_clear(ofpacts);
     }
     return error;
@@ -9297,12 +9318,18 @@ ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len,
     const struct ofpact *a;
     enum ovs_instruction_type inst;
 
+    VLOG_INFO("++++++zq ofpacts_verify: start");
     inst = OVSINST_OFPIT13_METER;
-    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+    int i = 0;
+    VLOG_INFO("++++++zq ofpacts_verify: before OFPACT_FOR_EACH, ofpacts_len: %d", ofpacts_len);
+    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {  // here
         enum ovs_instruction_type next;
         enum ofperr error;
+        VLOG_INFO("++++++zq ofpacts_verify: in OFPACT_FOR_EACH, run %dth time, a->type: %d, a->len: %d",
+                  i++, a->type, a->len);  // zq:can not stop it
 
         if (a->type == OFPACT_CONJUNCTION) {
+            VLOG_INFO("++++++zq ofpacts_verify: in OFPACT_FOR_EACH: a->type == OFPACT_CONJUNCTION");
             OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
                 if (a->type != OFPACT_CONJUNCTION && a->type != OFPACT_NOTE) {
                     verify_error(errorp, "\"conjunction\" actions may be used "
@@ -9325,6 +9352,7 @@ ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len,
             && (inst == OVSINST_OFPIT11_APPLY_ACTIONS
                 ? next < inst
                 : next <= inst)) {
+            VLOG_INFO("++++++zq ofpacts_verify: in OFPACT_FOR_EACH: OVSINST_OFPIT11_APPLY_ACTIONS");
             const char *name = ovs_instruction_name_from_type(inst);
             const char *next_name = ovs_instruction_name_from_type(next);
 
@@ -9341,6 +9369,7 @@ ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len,
         }
         if (!((1u << next) & allowed_ovsinsts)) {
             const char *name = ovs_instruction_name_from_type(next);
+            VLOG_INFO("++++++zq ofpacts_verify: in OFPACT_FOR_EACH: alloed_ovsinsts");
 
             if (next == OVSINST_OFPIT13_METER && version >= OFP15_VERSION) {
                 verify_error(errorp, "%s action not allowed here", name);
@@ -9352,8 +9381,10 @@ ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len,
         }
 
         inst = next;
-    }
-
+        /*VLOG_INFO("++++++zq ofpacts_verify: in OFPACT_FOR_EACH, run %dth time, a->type: %d, a->len: %d",
+                  i++, a->type, a->len);*/
+    }  // here
+    VLOG_INFO("++++++zq ofpacts_verify: end");
     return 0;
 }
 
@@ -10152,6 +10183,7 @@ ofpact_decode_raw(enum ofp_version ofp_version,
     /* Get base action type. */
     if (oah->type == htons(OFPAT_VENDOR)) {
         /* Get vendor. */
+        VLOG_INFO("+++++++++++zq ofpact_decode_raw: oah->type = htons(OFPAT_VENDOR)");
         hdrs.vendor = ntohl(oah->vendor);
         if (hdrs.vendor == NX_VENDOR_ID || hdrs.vendor == ONF_VENDOR_ID) {
             /* Get extension subtype. */
@@ -10173,6 +10205,8 @@ ofpact_decode_raw(enum ofp_version ofp_version,
     }
 
     hdrs.ofp_version = ofp_version;
+    VLOG_INFO("++++++zq ofpact_decode_raw: hdrs.vendor: %d, hdrs.type: %d, hdrs.ofp_version: %d.",
+              hdrs.vendor, hdrs.type, hdrs.ofp_version);  /* zq: dump-flows's version is OF1.0 by default. */
     HMAP_FOR_EACH_WITH_HASH (inst, decode_node, ofpact_hdrs_hash(&hdrs),
                              ofpact_decode_hmap()) {
         if (ofpact_hdrs_equal(&hdrs, &inst->hdrs)) {
@@ -10199,16 +10233,18 @@ ofpact_pull_raw(struct ofpbuf *buf, enum ofp_version ofp_version,
     enum ofperr error;
 
     *raw = *arg = 0;
+    VLOG_INFO("++++++zq ofpact_pull_raw: before ofpact_decode_raw");
     error = ofpact_decode_raw(ofp_version, oah, buf->size, &action);
+    VLOG_INFO("++++++zq ofpact_pull_raw: after ofpact_decode_raw, ver: %d, type: %d, len:%d\n", ofp_version, oah->type, ntohs(oah->len));
     if (error) {
         return error;
     }
 
-    if (action->deprecation) {
+    /*if (action->deprecation) {
         VLOG_INFO_RL(&rl, "%s is deprecated in %s (%s)",
                      action->name, ofputil_version_to_string(ofp_version),
                      action->deprecation);
-    }
+    }*/
 
     length = ntohs(oah->len);
     if (length > buf->size) {
@@ -10240,7 +10276,8 @@ ofpact_pull_raw(struct ofpbuf *buf, enum ofp_version ofp_version,
         }
     }
 
-    ofpbuf_pull(buf, length);
+    /*ofpbuf_pull(buf, length);*/
+    ofpbuf_pull(buf, POF_MAX_ACTION_LENGTH);
 
     return 0;
 }

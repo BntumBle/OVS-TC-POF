@@ -546,12 +546,17 @@ int ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
 	ovs_skb_init_inner_protocol(skb);
 	skb_clear_ovs_gso_cb(skb);
 	/* Extract flow from 'skb' into 'key'. */
+    printk(KERN_INFO "++++++zq:ovs_vport_receive:ovs_flow_key_extract start\n");
 	error = ovs_flow_key_extract(tun_info, skb, &key);
+    printk(KERN_INFO "++++++zq:ovs_vport_receive:ovs_flow_key_extract end\n");
 	if (unlikely(error)) {
+        printk(KERN_INFO "++++++zq:ovs_vport_receive:ovs_flow_key_extract error\n");
 		kfree_skb(skb);
 		return error;
 	}
+    printk(KERN_INFO "++++++zq:ovs_vport_receive:ovs_dp_process_packet start\n");
 	ovs_dp_process_packet(skb, &key);
+    printk(KERN_INFO "++++++zq:ovs_vport_receive:ovs_dp_process_packet end\n");
 	return 0;
 }
 

@@ -6440,10 +6440,12 @@ handle_flow_mod(struct ofconn *ofconn, const struct ofp_header *oh)
     OVS_EXCLUDED(ofproto_mutex)
 {
     struct ofproto *ofproto = ofconn_get_ofproto(ofconn);
-    struct ofputil_flow_mod fm;
+    struct ofputil_pof_flow_mod fm;
     uint64_t ofpacts_stub[1024 / 8];
     struct ofpbuf ofpacts;
     enum ofperr error;
+
+    VLOG_INFO("++++zq handle_openflow_mod, ofp_header.version: %d\n", oh->version);
 
     error = reject_slave_controller(ofconn);
     if (error) {
@@ -6460,11 +6462,13 @@ handle_flow_mod(struct ofconn *ofconn, const struct ofp_header *oh)
         struct openflow_mod_requester req = { ofconn, oh };
         VLOG_INFO("+++++++++++zq handle_flow_mod: before handle_flow_mod_pof__");
         error = handle_flow_mod_pof__(ofproto, &fm, &req);
-        VLOG_INFO("+++++++++++sqy handle_flow_mod: after handle_flow_mod_pof__");
-        minimatch_destroy(&fm.match);
+        VLOG_INFO("+++++++++++zq handle_flow_mod: after handle_flow_mod_pof__");
+//        minimatch_destroy(&fm.match);
+//        VLOG_INFO("+++++++++++zq handle_flow_mod: after minimatch_destroy");
     }
-
+    VLOG_INFO("+++++++++++zq handle_flow_mod: before ofpbuf_uninit");
     ofpbuf_uninit(&ofpacts);
+    VLOG_INFO("+++++++++++zq handle_flow_mod: after ofpbuf_uninit");
     return error;
 }
 

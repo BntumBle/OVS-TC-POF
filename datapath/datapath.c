@@ -244,11 +244,15 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	stats = this_cpu_ptr(dp->stats_percpu);
 
 	/* Look up flow. */
-	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
-					 &n_mask_hit);
-	if (unlikely(!flow)) {
+
+	/*flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
+					 &n_mask_hit);*/
+    bool flag = true;
+	/*if (unlikely(!flow)) {*/
+	if (flag) {
 		struct dp_upcall_info upcall;
 		int error;
+        printk(KERN_INFO "++++++zq  ovs_dp_process_packet:flag = 1, upcall\n");
 
 		memset(&upcall, 0, sizeof(upcall));
 		upcall.cmd = OVS_PACKET_CMD_MISS;
@@ -256,7 +260,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		upcall.mru = OVS_CB(skb)->mru;
 		error = ovs_dp_upcall(dp, skb, key, &upcall, 0);
 		if (unlikely(error))
+		{
+            printk(KERN_INFO "++++++zq  ovs_dp_process_packet:ovs_dp_upcall error\n");
 			kfree_skb(skb);
+		}
 		else
 			consume_skb(skb);
 		stats_counter = &stats->n_missed;
@@ -290,16 +297,19 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 		goto err;
 	}
 
-	if (!skb_is_gso(skb))
-		err = queue_userspace_packet(dp, skb, key, upcall_info, cutlen);
-	else
-		err = queue_gso_packets(dp, skb, key, upcall_info, cutlen);
+	if (!skb_is_gso(skb)){
+        printk(KERN_INFO "++++++zq ovs_dp_upcall: queue_userspace_packet start\n");
+		err = queue_userspace_packet(dp, skb, key, upcall_info, cutlen);}
+	else{
+        printk(KERN_INFO "++++++zq ovs_dp_upcall: queue_userspace_packet start\n");
+		err = queue_gso_packets(dp, skb, key, upcall_info, cutlen);}
 	if (err)
 		goto err;
 
 	return 0;
 
 err:
+    printk(KERN_INFO "++++++zq ovs_dp_upcall: error\n");
 	stats = this_cpu_ptr(dp->stats_percpu);
 
 	u64_stats_update_begin(&stats->syncp);
@@ -465,8 +475,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 		goto out;
 	}
 	upcall->dp_ifindex = dp_ifindex;
-
+    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key start\n");
 	err = ovs_nla_put_key(key, key, OVS_PACKET_ATTR_KEY, false, user_skb);
+    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key end\n");
 	BUG_ON(err);
 
 	if (upcall_info->userdata)
@@ -489,6 +500,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	if (upcall_info->actions_len) {
+        printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_actions start\n");
 		nla = nla_nest_start_noflag(user_skb, OVS_PACKET_ATTR_ACTIONS);
 		if (!nla) {
 			err = -EMSGSIZE;
@@ -541,7 +553,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
 
+    printk(KERN_INFO "++++++zq queue_userspace_packet: genlmsg_unicast start\n");
 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+    printk(KERN_INFO "++++++zq queue_userspace_packet: genlmsg_unicast end\n");
 	user_skb = NULL;
 out:
 	if (err)
