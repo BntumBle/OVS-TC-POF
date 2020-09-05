@@ -69,7 +69,7 @@ extern int flow_vlan_limit;
                  sizeof(uint64_t))
 
 void flow_extract(struct dp_packet *, struct flow *);
-
+//void pof_flow_extract(struct dp_packet *packet, struct flow *flow);
 void flow_zero_wildcards(struct flow *, const struct flow_wildcards *);
 void flow_unwildcard_tp_ports(const struct flow *, struct flow_wildcards *);
 void flow_get_metadata(const struct flow *, struct match *flow_metadata);
@@ -728,7 +728,7 @@ miniflow_get__(const struct miniflow *mf, size_t idx)
 #define MINIFLOW_GET_U32(FLOW, FIELD)           \
     MINIFLOW_GET_TYPE(FLOW, uint32_t, FIELD)
 #define MINIFLOW_GET_BE32(FLOW, FIELD)          \
-    MINIFLOW_GET_TYPE(FLOW, ovs_be32, FIELD)
+    MINIFLOW_GET_TYPE__(FLOW, ovs_be32, FIELD)   /*zq*/
 #define MINIFLOW_GET_U64(FLOW, FIELD)           \
     MINIFLOW_GET_TYPE(FLOW, uint64_t, FIELD)
 #define MINIFLOW_GET_BE64(FLOW, FIELD)          \
@@ -779,6 +779,7 @@ void minimask_combine(struct minimask *dst,
                       uint64_t storage[FLOW_U64S]);
 
 void minimask_expand(const struct minimask *, struct flow_wildcards *);
+void pof_minimask_expand(const struct minimask *, struct pof_flow_wildcards *);
 
 static inline uint32_t minimask_get_u32(const struct minimask *,
                                         unsigned int u32_ofs);
@@ -940,12 +941,36 @@ flow_union_with_miniflow_subset(struct flow *dst, const struct miniflow *src,
     }
 }
 
+static inline void
+pof_flow_union_with_miniflow_subset(struct pof_flow *dst, const struct miniflow *src,
+                                    struct flowmap subset)
+{
+    uint64_t *dst_u64 = (uint64_t *) dst;
+    const uint64_t *p = miniflow_get_values(src);
+    map_t map;
+
+    FLOWMAP_FOR_EACH_MAP (map, subset) {
+        size_t idx;
+
+        MAP_FOR_EACH_INDEX(idx, map) {
+            dst_u64[idx] |= *p++;
+        }
+        dst_u64 += MAP_T_BITS;
+    }
+}
+
 /* Perform a bitwise OR of miniflow 'src' flow data with the equivalent
  * fields in 'dst', storing the result in 'dst'. */
 static inline void
 flow_union_with_miniflow(struct flow *dst, const struct miniflow *src)
 {
     flow_union_with_miniflow_subset(dst, src, src->map);
+}
+
+static inline void
+pof_flow_union_with_miniflow(struct pof_flow *dst, const struct miniflow *src)
+{
+    pof_flow_union_with_miniflow_subset(dst, src, src->map);
 }
 
 static inline bool is_ct_valid(const struct flow *flow,

@@ -313,6 +313,7 @@ extern "C" {
 /* Classifier internal data structures. */
 struct cls_subtable;
 struct cls_match;
+struct dp_packet;
 
 struct trie_node;
 typedef OVSRCU_TYPE(struct trie_node *) rcu_trie_ptr;
@@ -394,6 +395,10 @@ static inline void classifier_publish(struct classifier *);
 
 /* Lookups.  These are RCU protected and may run concurrently with modifiers
  * and each other. */
+const struct cls_rule *classifier_lookup_pof(const struct classifier *,
+                                             ovs_version_t, struct flow *,
+                                             struct dp_packet *,
+                                             struct flow_wildcards *);
 const struct cls_rule *classifier_lookup(const struct classifier *,
                                          ovs_version_t, struct flow *,
                                          struct flow_wildcards *);

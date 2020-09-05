@@ -96,6 +96,16 @@ struct rule_dpif {
     uint32_t recirc_id;
 };
 
+struct rule_dpif *rule_dpif_lookup_from_table_pof(struct ofproto_dpif *,
+                                                  ovs_version_t, struct flow *,
+                                                  struct dp_packet *,
+                                                  struct flow_wildcards *,
+                                                  const struct dpif_flow_stats *,
+                                                  uint8_t *table_id,
+                                                  ofp_port_t in_port,
+                                                  bool may_packet_in,
+                                                  bool honor_table_miss,
+                                                  struct xlate_cache *xcache);
 struct rule_dpif *rule_dpif_lookup_from_table(struct ofproto_dpif *,
                                               ovs_version_t, struct flow *,
                                               struct flow_wildcards *,

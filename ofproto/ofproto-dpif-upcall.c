@@ -815,6 +815,7 @@ recv_upcalls(struct handler *handler)
                                dupcall->type, dupcall->userdata, flow, mru,
                                &dupcall->ufid, PMD_ID_NULL);
         if (error) {
+            VLOG_INFO("+++++++++++zq upcall_cb: error upcall_receive");
             if (error == ENODEV) {
                 /* Received packet on datapath port for which we couldn't
                  * associate an ofproto.  This can happen if a port is removed
@@ -843,6 +844,7 @@ recv_upcalls(struct handler *handler)
         error = process_upcall(udpif, upcall,
                                &upcall->odp_actions, &upcall->wc);
         if (error) {
+            VLOG_INFO("+++++++++++zq recv_upcalls: error process_upcall");
             goto cleanup;
         }
 
@@ -1165,6 +1167,7 @@ static void
 upcall_xlate(struct udpif *udpif, struct upcall *upcall,
              struct ofpbuf *odp_actions, struct flow_wildcards *wc)
 {
+    VLOG_INFO("+++++++++++zq upcall_xlate start");
     struct dpif_flow_stats stats;
     enum xlate_error xerr;
     struct xlate_in xin;
@@ -1203,6 +1206,7 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
     upcall->reval_seq = seq_read(udpif->reval_seq);
 
     xerr = xlate_actions(&xin, &upcall->xout);
+    VLOG_INFO("+++++++++++zq upcall_xlate:xerr=%d", xerr);
 
     /* Translate again and log the ofproto trace for
      * these two error types. */
@@ -1248,7 +1252,7 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
     /* This function is also called for slow-pathed flows.  As we are only
      * going to create new datapath flows for actual datapath misses, there is
      * no point in creating a ukey otherwise. */
-    if (upcall->type == MISS_UPCALL) {
+    if (upcall->type == MISS_UPCALL) { //zq notes: run here
         upcall->ukey = ukey_create_from_upcall(upcall, wc);
     }
 }
@@ -1420,9 +1424,11 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
     case SLOW_PATH_UPCALL:
         VLOG_INFO("zq: enter slow_path_upcall");
         upcall_xlate(udpif, upcall, odp_actions, wc);
+        VLOG_INFO("zq: leave slow_path_upcall");
         return 0;
 
     case SFLOW_UPCALL:
+        VLOG_INFO("zq: enter SFLOW_UPCALL");
         if (upcall->sflow) {
             struct dpif_sflow_actions sflow_actions;
 
@@ -1438,6 +1444,7 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
 
     case IPFIX_UPCALL:
     case FLOW_SAMPLE_UPCALL:
+        VLOG_INFO("zq: enter FLOW_SAMPLE_UPCALL");
         if (upcall->ipfix) {
             struct flow_tnl output_tunnel_key;
             struct dpif_ipfix_actions ipfix_actions;
@@ -1472,6 +1479,7 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
         break;
 
     case CONTROLLER_UPCALL:
+        VLOG_INFO("zq: enter CONTROLLER_UPCALL");
         {
             struct user_action_cookie *cookie = &upcall->cookie;
 
@@ -1555,6 +1563,7 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
         break;
 
     case BAD_UPCALL:
+        VLOG_INFO("+++++++++++zq:  BAD_UPCALL");
         break;
     }
 
