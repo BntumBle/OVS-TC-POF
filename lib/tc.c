@@ -2372,6 +2372,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
 static int
 nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
 {
+    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts start");
     bool ingress, released = false;
     size_t offset;
     size_t act_offset;
@@ -2385,6 +2386,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
 
         action = flower->actions;
         for (i = 0; i < flower->action_count; i++, action++) {
+            VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: flower->action->type: %d", action->type);
             switch (action->type) {
             case TC_ACT_PEDIT: {
                 act_offset = nl_msg_start_nested(request, act_index++);
@@ -2427,6 +2429,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             }
             break;
             case TC_ACT_VLAN_PUSH: {
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_VLAN_PUSH start");
                 act_offset = nl_msg_start_nested(request, act_index++);
                 nl_msg_put_act_push_vlan(request,
                                          action->vlan.vlan_push_tpid,
@@ -2434,6 +2437,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
                                          action->vlan.vlan_push_prio);
                 nl_msg_put_act_flags(request);
                 nl_msg_end_nested(request, act_offset);
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_VLAN_PUSH end");
             }
             break;
             case TC_ACT_MPLS_POP: {
@@ -2459,6 +2463,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             }
             break;
             case TC_ACT_OUTPUT: {
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT start");
                 if (!released && flower->tunnel) {
                     act_offset = nl_msg_start_nested(request, act_index++);
                     nl_msg_put_act_tunnel_key_release(request);
@@ -2503,6 +2508,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
                 nl_msg_put_act_cookie(request, &flower->act_cookie);
                 nl_msg_put_act_flags(request);
                 nl_msg_end_nested(request, act_offset);
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT end");
             }
             break;
             case TC_ACT_GOTO: {
@@ -2541,6 +2547,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
         nl_msg_end_nested(request, act_offset);
     }
     nl_msg_end_nested(request, offset);
+    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts end");
 
     return 0;
 }
@@ -2640,7 +2647,7 @@ nl_msg_put_flower_tunnel(struct ofpbuf *request, struct tc_flower *flower)
 static int
 nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
 {
-
+    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options start");
     uint16_t host_eth_type = ntohs(flower->key.eth_type);
     bool is_vlan = eth_type_vlan(flower->key.eth_type);
     bool is_qinq = is_vlan && eth_type_vlan(flower->key.encap_eth_type[0]);
@@ -2650,7 +2657,8 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
     /* need to parse acts first as some acts require changing the matching
      * see csum_update_flag()  */
     err  = nl_msg_put_flower_acts(request, flower);
-    if (err) {
+    if (err) { //no run
+        VLOG_INFO("+++++++++++zq: tc_replace_flower: nl_msg_put_flower_acts error");
         return err;
     }
 
@@ -2774,6 +2782,7 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
 int
 tc_replace_flower(struct tcf_id *id, struct tc_flower *flower)
 {
+    VLOG_INFO("+++++++++++zq: tc_replace_flower start");
     struct ofpbuf request;
     struct ofpbuf *reply;
     int error = 0;
@@ -2786,9 +2795,11 @@ tc_replace_flower(struct tcf_id *id, struct tc_flower *flower)
     nl_msg_put_string(&request, TCA_KIND, "flower");
     basic_offset = nl_msg_start_nested(&request, TCA_OPTIONS);
     {
+        VLOG_INFO("+++++++++++zq: tc_replace_flower: before nl_msg_put_flower_options");
         error = nl_msg_put_flower_options(&request, flower);
-
-        if (error) {
+        VLOG_INFO("+++++++++++zq: tc_replace_flower: after nl_msg_put_flower_options");
+        if (error) { //not run
+            VLOG_INFO("+++++++++++zq: tc_replace_flower: nl_msg_put_flower_options error");
             ofpbuf_uninit(&request);
             return error;
         }
@@ -2796,6 +2807,9 @@ tc_replace_flower(struct tcf_id *id, struct tc_flower *flower)
     nl_msg_end_nested(&request, basic_offset);
 
     error = tc_transact(&request, &reply);
+    if (error) { //error
+        VLOG_INFO("+++++++++++zq: tc_replace_flower: tc_transact error");
+    }
     if (!error) {
         struct tcmsg *tc =
             ofpbuf_at_assert(reply, NLMSG_HDRLEN, sizeof *tc);

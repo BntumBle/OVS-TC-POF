@@ -1794,7 +1794,9 @@ nl_transact(int protocol, const struct ofpbuf *request,
     int error;
 
     error = nl_pool_alloc(protocol, &sock);
+
     if (error) {
+        VLOG_INFO("+++++++++++zq: nl_transact: nl_pool_alloc error");
         if (replyp) {
             *replyp = NULL;
         }
@@ -1802,6 +1804,9 @@ nl_transact(int protocol, const struct ofpbuf *request,
     }
 
     error = nl_sock_transact(sock, request, replyp);
+    if (error) {
+        VLOG_INFO("+++++++++++zq: nl_transact: nl_sock_transact error");
+    }
 
     nl_pool_release(sock);
     return error;

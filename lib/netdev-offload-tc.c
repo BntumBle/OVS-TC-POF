@@ -1358,6 +1358,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    const ovs_u128 *ufid, struct offload_info *info,
                    struct dpif_flow_stats *stats)
 {
+    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start");
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
     enum tc_qdisc_hook hook = get_tc_qdisc_hook(netdev);
     struct tc_flower flower;
@@ -1637,6 +1638,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
         }
         action = &flower.actions[flower.action_count];
         if (nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT) {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_OUTPUT");
             odp_port_t port = nl_attr_get_odp_port(nla);
             struct netdev *outdev = netdev_ports_get(port, info->dpif_class);
 
@@ -1664,6 +1666,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //        }
         else if (nl_attr_type(nla) == OVS_ACTION_ATTR_PUSH_MPLS)
         {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_PUSH_MPLS");
             const struct ovs_action_push_mpls *mpls_push = nl_attr_get(nla);
 
             action->mpls.proto = mpls_push->mpls_ethertype;
@@ -1674,10 +1677,12 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             action->type = TC_ACT_MPLS_PUSH;
             flower.action_count++;
         } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_POP_MPLS) {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_POP_MPLS");
             action->mpls.proto = nl_attr_get_be16(nla);
             action->type = TC_ACT_MPLS_POP;
             flower.action_count++;
         } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET) {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET");
             const struct nlattr *set = nl_attr_get(nla);
             const size_t set_len = nl_attr_get_size(nla);
 
@@ -1701,18 +1706,29 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //            }
 //        }
         else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
-            enum ovs_key_attr type = nl_attr_type(nla);
-            const struct ovs_key_add_field *p_key = nl_attr_get(nla);
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");
+            const struct nlattr *a = nl_attr_get(nla);
+            enum ovs_key_attr type = nl_attr_type(a);
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: type=%d", type);
 
             switch (type) {
                 case OVS_KEY_ATTR_ADD_FIELD: {
-                    uint8_t in_port_int = p_key->in_port;
-                    uint8_t out_port_int = p_key->out_port;
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
+                    /*uint8_t in_port_int = p_key->in_port;
+                    uint8_t out_port_int = p_key->out_port;*/
+                    const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[0]=:%d", add_field_key->value[0]);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[1]);
+                    uint8_t in_port_int = 0;
+                    uint8_t out_port_int = 0;
                     ovs_be16 tci = (ovs_be16) (out_port_int << 8) | in_port_int;
-                    uint16_t int_type = 0x0908;
-                    VLOG_INFO("++++++zq netdev_flow_put: int_type:%llx", int_type);
+                    uint16_t int_type = (uint16_t) (add_field_key->value[0]<< 8) | add_field_key->value[1];
+//                    uint16_t int_type = 0x0908;
+                    VLOG_INFO("++++++zq netdev_flow_put: int_type:0x%"PRIx16, int_type);
 
-                    action->vlan.vlan_push_tpid = int_type;
+                    action->vlan.vlan_push_tpid = ETH_TYPE_VLAN;
+                    VLOG_INFO("++++++zq netdev_flow_put: action->vlan.vlan_push_tpid:0x%"PRIx16, action->vlan.vlan_push_tpid);
                     action->vlan.vlan_push_id = vlan_tci_to_vid(tci);
                     action->vlan.vlan_push_prio = vlan_tci_to_pcp(tci);
                     action->type = TC_ACT_VLAN_PUSH;
@@ -1720,6 +1736,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                 }
                 break;
                 default:
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: OVS_NOT_REACHED");
                     OVS_NOT_REACHED();
             }
 
@@ -1741,6 +1758,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             flower.action_count++;
             recirc_act = true;
         } else {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action error");
             VLOG_DBG_RL(&rl, "unsupported put action type: %d",
                         nl_attr_type(nla));
             return EOPNOTSUPP;
@@ -1770,6 +1788,9 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     block_id = get_block_id_from_netdev(netdev);
     id = tc_make_tcf_id_chain(ifindex, block_id, chain, prio, hook);
     err = tc_replace_flower(&id, &flower);
+    if (err) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: tc_replace_flower error");
+    }
     if (!err) {
         if (stats) {
             memset(stats, 0, sizeof *stats);

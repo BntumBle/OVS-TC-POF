@@ -7529,6 +7529,7 @@ commit_masked_set_action(struct ofpbuf *odp_actions,
                          enum ovs_key_attr key_type,
                          const void *key_, const void *mask_, size_t key_size)
 {
+    VLOG_INFO("++++++zq commit_masked_set_action start");
     size_t offset = nl_msg_start_nested(odp_actions,
                                         OVS_ACTION_ATTR_SET_MASKED);
     char *data = nl_msg_put_unspec_uninit(odp_actions, key_type, key_size * 2);
@@ -7538,8 +7539,10 @@ commit_masked_set_action(struct ofpbuf *odp_actions,
     /* Clear unmasked bits while copying. */
     while (key_size--) {
         *data++ = *key++ & *mask++;
+        /*VLOG_INFO("++++++tsf commit_masked_set_action *data=%d", *data++);*/
     }
     nl_msg_end_nested(odp_actions, offset);
+    VLOG_INFO("++++++zq commit_masked_set_action end");
 }
 
 /* If any of the flow key data that ODP actions can modify are different in
@@ -7607,8 +7610,9 @@ pof_commit(enum ovs_key_attr attr, bool use_masked_set,
     if (flag) {
         bool fully_masked = odp_mask_is_exact(attr, mask, size);
 
-        if (use_masked_set && !fully_masked) {
-            VLOG_INFO("++++++zq pof_commit: commit_masked_set_action/fully_masked = %d", fully_masked);
+
+        if (use_masked_set && !fully_masked) { //run here
+            VLOG_INFO("++++++zq pof_commit: attr = %d", attr);
             commit_masked_set_action(odp_actions, attr, key, mask, size);
         } else {
             if (!fully_masked) {
@@ -7689,7 +7693,7 @@ commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
     VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before pof_commit");
     if (pof_commit(OVS_KEY_ATTR_ADD_FIELD, use_masked,
                    &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
-        /*VLOG_INFO("+++++++++++tsf commit_pof_add_field_action: after pof_commit");*/
+        VLOG_INFO("+++++++++++tsf commit_pof_add_field_action: after pof_commit");
         put_pof_add_field_key(&base, base_flow, index);
         put_pof_add_field_key(&mask, &wc->masks, index);
     }

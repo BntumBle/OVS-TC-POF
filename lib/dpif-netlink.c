@@ -2034,6 +2034,7 @@ parse_flow_get(struct dpif_netlink *dpif, struct dpif_flow_get *get)
 static int
 parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
 {
+    VLOG_INFO("+++++++++++zq: parse_flow_put start");
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
     const struct dpif_class *dpif_class = dpif->dpif.dpif_class;
     struct match match;
@@ -2050,6 +2051,7 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
         return EOPNOTSUPP;
     }
 
+    VLOG_INFO("+++++++++++zq: parse_flow_put :put->key_type=%d ,put->key_len=%d, put->mask_type=%d, put->mask_len=%d",put->key->nla_type,put->key_len,put->mask->nla_type,put->mask_len);
     err = parse_key_and_mask_to_match(put->key, put->key_len, put->mask,
                                       put->mask_len, &match);
     if (err) {
@@ -2065,21 +2067,26 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
     /* Get tunnel dst port */
     NL_ATTR_FOR_EACH(nla, left, put->actions, put->actions_len) {
         if (nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT) {
+            VLOG_INFO("+++++++++++zq: parse_flow_put :nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT");
             const struct netdev_tunnel_config *tnl_cfg;
             struct netdev *outdev;
             odp_port_t out_port;
 
             out_port = nl_attr_get_odp_port(nla);
+            VLOG_INFO("+++++++++++zq: parse_flow_put :out_port=%u",out_port);
             outdev = netdev_ports_get(out_port, dpif_class);
             if (!outdev) {
+                VLOG_INFO("+++++++++++zq: parse_flow_put :!outdev");
                 err = EOPNOTSUPP;
                 goto out;
             }
             tnl_cfg = netdev_get_tunnel_config(outdev);
             if (tnl_cfg && tnl_cfg->dst_port != 0) {
+                VLOG_INFO("+++++++++++zq: parse_flow_put :tnl_cfg && tnl_cfg->dst_port != 0");
                 dst_port = tnl_cfg->dst_port;
             }
             if (tnl_cfg) {
+                VLOG_INFO("+++++++++++zq: parse_flow_put :tnl_cfg = 1");
                 csum_on = tnl_cfg->csum;
             }
             netdev_close(outdev);
@@ -2091,11 +2098,13 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
     info.tunnel_csum_on = csum_on;
     info.recirc_id_shared_with_tc = (dpif->user_features
                                      & OVS_DP_F_TC_RECIRC_SHARING);
+    VLOG_INFO("+++++++++++zq: parse_flow_put: before netdev_flow_put");
     err = netdev_flow_put(dev, &match,
                           CONST_CAST(struct nlattr *, put->actions),
                           put->actions_len,
                           CONST_CAST(ovs_u128 *, put->ufid),
                           &info, put->stats);
+    VLOG_INFO("+++++++++++zq: parse_flow_put: after netdev_flow_put");
 
     if (!err) {
         if (put->flags & DPIF_FP_MODIFY) {
@@ -2112,6 +2121,7 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
 
             opp = &op;
             dpif_netlink_operate__(dpif, &opp, 1);
+            VLOG_INFO("+++++++++++zq: parse_flow_put: no err added flow");
         }
 
         VLOG_DBG("added flow");
@@ -2119,6 +2129,7 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
         struct netdev *oor_netdev = NULL;
         enum vlog_level level;
         if (err == ENOSPC && netdev_is_offload_rebalance_policy_enabled()) {
+            VLOG_INFO("+++++++++++zq: parse_flow_put: err == ENOSPC && netdev_is_offload_rebalance_policy_enabled");
             /*
              * We need to set OOR on the input netdev (i.e, 'dev') for the
              * flow. But if the flow has a tunnel attribute (i.e, decap action,
@@ -2164,21 +2175,25 @@ out:
 static int
 try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
 {
+    /*VLOG_INFO("+++++++++++zq: try_send_to_netdev start");*/
     int err = EOPNOTSUPP;
 
     switch (op->type) {
-    case DPIF_OP_FLOW_PUT: {
+    case DPIF_OP_FLOW_PUT: {  //zq note: run
+        VLOG_INFO("+++++++++++zq: try_send_to_netdev : DPIF_OP_FLOW_PUT");
         struct dpif_flow_put *put = &op->flow_put;
 
         if (!put->ufid) {
             break;
         }
-
+        VLOG_INFO("+++++++++++zq: try_send_to_netdev : before parse_flow_put");
         err = parse_flow_put(dpif, put);
+        VLOG_INFO("+++++++++++zq: try_send_to_netdev : after parse_flow_put");
         log_flow_put_message(&dpif->dpif, &this_module, put, 0);
         break;
     }
-    case DPIF_OP_FLOW_DEL: {
+    case DPIF_OP_FLOW_DEL: { //zq note: run
+//        VLOG_INFO("+++++++++++zq: try_send_to_netdev start: DPIF_OP_FLOW_DEL");
         struct dpif_flow_del *del = &op->flow_del;
 
         if (!del->ufid) {
@@ -2191,6 +2206,7 @@ try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
         break;
     }
     case DPIF_OP_FLOW_GET: {
+        VLOG_INFO("+++++++++++zq: try_send_to_netdev start: DPIF_OP_FLOW_GET");
         struct dpif_flow_get *get = &op->flow_get;
 
         if (!op->flow_get.ufid) {
@@ -2225,6 +2241,7 @@ static void
 dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
                      enum dpif_offload_type offload_type)
 {
+//    VLOG_INFO("+++++++++++zq:  dpif_netlink_operate start");
     struct dpif_netlink *dpif = dpif_netlink_cast(dpif_);
     struct dpif_op *new_ops[OPERATE_MAX_OPS];
     int count = 0;
@@ -2237,12 +2254,13 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
     }
 
     if (offload_type != DPIF_OFFLOAD_NEVER && netdev_is_flow_api_enabled()) {
+        VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: offload api enabled");
         while (n_ops > 0) {
             count = 0;
 
             while (n_ops > 0 && count < OPERATE_MAX_OPS) {
                 struct dpif_op *op = ops[i++];
-
+                /*VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev");*/
                 err = try_send_to_netdev(dpif, op);
                 if (err && err != EEXIST) {
                     if (offload_type == DPIF_OFFLOAD_ALWAYS) {
@@ -2275,6 +2293,7 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
     } else if (offload_type != DPIF_OFFLOAD_ALWAYS) {
         dpif_netlink_operate_chunks(dpif, ops, n_ops);
     }
+//    VLOG_INFO("+++++++++++zq:  dpif_netlink_operate end");
 }
 
 #if _WIN32

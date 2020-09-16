@@ -859,7 +859,9 @@ free_dupcall:
     }
 
     if (n_upcalls) {
+        VLOG_INFO("+++++++++zq recv_upcalls: before handle_upcalls");
         handle_upcalls(handler->udpif, upcalls, n_upcalls);
+        VLOG_INFO("+++++++++zq recv_upcalls: after handle_upcalls");
         for (i = 0; i < n_upcalls; i++) {
             dp_packet_uninit(&dupcalls[i].packet);
             ofpbuf_uninit(&recv_bufs[i]);
@@ -1574,6 +1576,7 @@ static void
 handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
                size_t n_upcalls)
 {
+    VLOG_INFO("+++++++++++zq:  handle_upcalls start");
     struct dpif_op *opsp[UPCALL_MAX_BATCH * 2];
     struct ukey_op ops[UPCALL_MAX_BATCH * 2];
     size_t n_ops, n_opsp, i;
@@ -1589,21 +1592,26 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
      * The loop fills 'ops' with an array of operations to execute in the
      * datapath. */
     n_ops = 0;
+    VLOG_INFO("+++++++++++zq  handle_upcalls:n_upcalls=%d", n_upcalls);
     for (i = 0; i < n_upcalls; i++) {
         struct upcall *upcall = &upcalls[i];
         const struct dp_packet *packet = upcall->packet;
         struct ukey_op *op;
+        VLOG_INFO("++++++zq handle_upcalls: loop run %dth time", i);
 
-        if (should_install_flow(udpif, upcall)) {
+        if (should_install_flow(udpif, upcall)) { //zq note :run
+            VLOG_INFO("+++++++++++zq:  handle_upcalls: should_install_flow");
             struct udpif_key *ukey = upcall->ukey;
 
-            if (ukey_install(udpif, ukey)) {
+            if (ukey_install(udpif, ukey)) { //zq note :run
+                VLOG_INFO("+++++++++++zq:  handle_upcalls: ukey_install");
                 upcall->ukey_persists = true;
                 put_op_init(&ops[n_ops++], ukey, DPIF_FP_CREATE);
             }
         }
 
         if (upcall->odp_actions.size) {
+            VLOG_INFO("+++++++++++zq:  handle_upcalls: upcall->odp_actions.size=%u", upcall->odp_actions.size);
             op = &ops[n_ops++];
             op->ukey = NULL;
             op->dop.type = DPIF_OP_EXECUTE;
@@ -1622,6 +1630,7 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
 
     /* Execute batch. */
     n_opsp = 0;
+    VLOG_INFO("+++++++++++zq:  handle_upcalls: n_ops=%lu", n_ops);
     for (i = 0; i < n_ops; i++) {
         opsp[n_opsp++] = &ops[i].dop;
     }
@@ -1629,16 +1638,20 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
     for (i = 0; i < n_ops; i++) {
         struct udpif_key *ukey = ops[i].ukey;
 
-        if (ukey) {
+        if (ukey) { //zq note :run
+            VLOG_INFO("+++++++++++zq:  handle_upcalls: if(ukey) = 1");
             ovs_mutex_lock(&ukey->mutex);
             if (ops[i].dop.error) {
+                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 1");
                 transition_ukey(ukey, UKEY_EVICTED);
-            } else if (ukey->state < UKEY_OPERATIONAL) {
+            } else if (ukey->state < UKEY_OPERATIONAL) { //zq note :run
+                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 0");
                 transition_ukey(ukey, UKEY_OPERATIONAL);
             }
             ovs_mutex_unlock(&ukey->mutex);
         }
     }
+    VLOG_INFO("+++++++++++zq:  handle_upcalls end");
 }
 
 static uint32_t

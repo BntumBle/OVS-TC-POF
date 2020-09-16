@@ -391,7 +391,6 @@ enum ovs_key_attr {
 	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
 	OVS_KEY_ATTR_NSH,       /* Nested set of ovs_nsh_key_* */
     OVS_KEY_ATTR_ADD_FIELD,    /* tsf: add_field action in pof */
-    OVS_KEY_ATTR_DELETE_FIELD, /* tsf: delete_field action in pof */
 
 #ifdef __KERNEL__
 	/* Only used within kernel data path. */

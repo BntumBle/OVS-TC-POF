@@ -1329,7 +1329,9 @@ void
 dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
              enum dpif_offload_type offload_type)
 {
-    if (offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()) {
+    VLOG_INFO("+++++++++++zq:  dpif_operate start");
+    if (offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()) {  //zq note: not run
+        VLOG_INFO("+++++++++++zq dpif_operate: offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()");
         size_t i;
         for (i = 0; i < n_ops; i++) {
             struct dpif_op *op = ops[i];
@@ -1339,26 +1341,29 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
     }
 
     while (n_ops > 0) {
+        VLOG_INFO("+++++++++++zq dpif_operate: n_ops > 0");
         size_t chunk;
 
         /* Count 'chunk', the number of ops that can be executed without
          * needing any help.  Ops that need help should be rare, so we
          * expect this to ordinarily be 'n_ops', that is, all the ops. */
-        for (chunk = 0; chunk < n_ops; chunk++) {
+        for (chunk = 0; chunk < n_ops; chunk++) { //zq note: not run
             struct dpif_op *op = ops[chunk];
 
             if (op->type == DPIF_OP_EXECUTE
                 && dpif_execute_needs_help(&op->execute)) {
+                VLOG_INFO("+++++++++++zq dpif_operate: op->type == DPIF_OP_EXECUTE && dpif_execute_needs_help(&op->execute)");
                 break;
             }
         }
 
-        if (chunk) {
+        if (chunk) { // zq: run
+            VLOG_INFO("+++++++++++zq dpif_operate: chunk = 1");
             /* Execute a chunk full of ops that the dpif provider can
              * handle itself, without help. */
             size_t i;
 
-            dpif->dpif_class->operate(dpif, ops, chunk, offload_type);
+            dpif->dpif_class->operate(dpif, ops, chunk, offload_type);  //zq note: skip to dpif_netlink_operate
 
             for (i = 0; i < chunk; i++) {
                 struct dpif_op *op = ops[i];
@@ -1366,6 +1371,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
 
                 switch (op->type) {
                 case DPIF_OP_FLOW_PUT: {
+                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_PUT");
                     struct dpif_flow_put *put = &op->flow_put;
 
                     COVERAGE_INC(dpif_flow_put);
@@ -1377,6 +1383,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                 }
 
                 case DPIF_OP_FLOW_GET: {
+                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_GET");
                     struct dpif_flow_get *get = &op->flow_get;
 
                     COVERAGE_INC(dpif_flow_get);
@@ -1389,6 +1396,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                 }
 
                 case DPIF_OP_FLOW_DEL: {
+                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_DEL");
                     struct dpif_flow_del *del = &op->flow_del;
 
                     COVERAGE_INC(dpif_flow_del);
@@ -1399,10 +1407,13 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                     break;
                 }
 
-                case DPIF_OP_EXECUTE:
+                case DPIF_OP_EXECUTE: {
+                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_EXECUTE");
+
                     COVERAGE_INC(dpif_execute);
                     log_execute_message(dpif, &this_module, &op->execute,
                                         false, error);
+                }
                     break;
                 }
             }
@@ -1410,6 +1421,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
             ops += chunk;
             n_ops -= chunk;
         } else {
+            VLOG_INFO("+++++++++++zq dpif_operate: chunk != 1");
             /* Help the dpif provider to execute one op. */
             struct dpif_op *op = ops[0];
 
@@ -1419,6 +1431,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
             n_ops--;
         }
     }
+    VLOG_INFO("+++++++++++zq:  dpif_operate end");
 }
 
 /* Returns a string that represents 'type', for use in log messages. */
