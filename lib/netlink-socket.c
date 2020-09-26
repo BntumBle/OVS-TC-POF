@@ -865,10 +865,12 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
                   txn->request->size, sock->protocol);
     }
     if (!error) {
+//        VLOG_INFO("+++++++++++zq: nl_sock_transact_multiple__: sendmsg no error");
         COVERAGE_ADD(netlink_sent, n);
     }
 
     if (error) {
+        VLOG_INFO("+++++++++++zq: nl_sock_transact_multiple__: sendmsg error");
         return error;
     }
 
@@ -893,6 +895,7 @@ nl_sock_transact_multiple__(struct nl_sock *sock,
         /* Receive a reply. */
         error = nl_sock_recv__(sock, buf_txn->reply, NULL, false);
         if (error) {
+            /*VLOG_INFO("+++++++++++zq: nl_sock_transact_multiple__: nl_sock_recv__ error");*/
             if (error == EAGAIN) {
                 nl_sock_record_errors__(transactions, n, 0);
                 *done += n;
@@ -1076,7 +1079,8 @@ nl_sock_transact_multiple(struct nl_sock *sock,
             bytes += transactions[count]->request->size;
         }
 
-        error = nl_sock_transact_multiple__(sock, transactions, count, &done);
+        error = nl_sock_transact_multiple__(sock, transactions, count, &done); //zq: error
+//        VLOG_INFO("+++++++++++zq: nl_sock_transact_multiple__ error");
         transactions += done;
         n -= done;
 
@@ -1109,6 +1113,7 @@ nl_sock_transact(struct nl_sock *sock, const struct ofpbuf *request,
 
     if (replyp) {
         if (transaction.error) {
+//            VLOG_INFO("+++++++++++zq: nl_sock_transact: transaction error");
             ofpbuf_delete(transaction.reply);
             *replyp = NULL;
         } else {
@@ -1803,9 +1808,9 @@ nl_transact(int protocol, const struct ofpbuf *request,
         return error;
     }
 
-    error = nl_sock_transact(sock, request, replyp);
+    error = nl_sock_transact(sock, request, replyp); // zq: error
     if (error) {
-        VLOG_INFO("+++++++++++zq: nl_transact: nl_sock_transact error");
+        /*VLOG_INFO("+++++++++++zq: nl_transact: nl_sock_transact error");*/
     }
 
     nl_pool_release(sock);

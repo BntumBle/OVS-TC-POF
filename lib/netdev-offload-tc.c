@@ -1390,6 +1390,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     mask->recirc_id = 0;
 
     if (flow_tnl_dst_is_set(&key->tunnel)) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: flow_tnl_dst_is_set(&key->tunnel)");
         VLOG_DBG_RL(&rl,
                     "tunnel: id %#" PRIx64 " src " IP_FMT
                     " dst " IP_FMT " tp_src %d tp_dst %d",
@@ -1423,12 +1424,14 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     mask->mpls_lse[0] = 0;
 
     if (mask->vlans[0].tpid && eth_type_vlan(key->vlans[0].tpid)) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tpid && eth_type_vlan(key->vlans[0].tpid)");
         flower.key.encap_eth_type[0] = flower.key.eth_type;
         flower.mask.encap_eth_type[0] = flower.mask.eth_type;
         flower.key.eth_type = key->vlans[0].tpid;
         flower.mask.eth_type = mask->vlans[0].tpid;
     }
     if (mask->vlans[0].tci) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tci");
         ovs_be16 vid_mask = mask->vlans[0].tci & htons(VLAN_VID_MASK);
         ovs_be16 pcp_mask = mask->vlans[0].tci & htons(VLAN_PCP_MASK);
         ovs_be16 cfi = mask->vlans[0].tci & htons(VLAN_CFI);
@@ -1450,20 +1453,24 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             }
         } else if (mask->vlans[0].tci == htons(0xffff) &&
                    ntohs(key->vlans[0].tci) == 0) {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[0]");
             /* exact && no vlan */
         } else {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[0]");
             /* partial mask */
             return EOPNOTSUPP;
         }
     }
 
     if (mask->vlans[1].tpid && eth_type_vlan(key->vlans[1].tpid)) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tpid && eth_type_vlan(key->vlans[1].tpid)");
         flower.key.encap_eth_type[1] = flower.key.encap_eth_type[0];
         flower.mask.encap_eth_type[1] = flower.mask.encap_eth_type[0];
         flower.key.encap_eth_type[0] = key->vlans[1].tpid;
         flower.mask.encap_eth_type[0] = mask->vlans[1].tpid;
     }
     if (mask->vlans[1].tci) {
+        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tci");
         ovs_be16 vid_mask = mask->vlans[1].tci & htons(VLAN_VID_MASK);
         ovs_be16 pcp_mask = mask->vlans[1].tci & htons(VLAN_PCP_MASK);
         ovs_be16 cfi = mask->vlans[1].tci & htons(VLAN_CFI);
@@ -1484,8 +1491,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             }
         } else if (mask->vlans[1].tci == htons(0xffff) &&
                    ntohs(key->vlans[1].tci) == 0) {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[1]");
             /* exact && no vlan */
         } else {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[1]");
             /* partial mask */
             return EOPNOTSUPP;
         }
@@ -1664,7 +1673,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //            action->type = TC_ACT_VLAN_POP;
 //            flower.action_count++;
 //        }
-        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_PUSH_MPLS)
+        /*else if (nl_attr_type(nla) == OVS_ACTION_ATTR_PUSH_MPLS)
         {
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_PUSH_MPLS");
             const struct ovs_action_push_mpls *mpls_push = nl_attr_get(nla);
@@ -1676,7 +1685,8 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             action->mpls.bos = mpls_lse_to_bos(mpls_push->mpls_lse);
             action->type = TC_ACT_MPLS_PUSH;
             flower.action_count++;
-        } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_POP_MPLS) {
+        } */
+        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_POP_MPLS) {
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_POP_MPLS");
             action->mpls.proto = nl_attr_get_be16(nla);
             action->type = TC_ACT_MPLS_POP;
@@ -1705,6 +1715,20 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //                return err;
 //            }
 //        }
+        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_PUSH_MPLS)
+        {
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_PUSH_MPLS");
+            const struct ovs_action_push_mpls *mpls_push = nl_attr_get(nla);
+
+            action->mpls.proto = mpls_push->mpls_ethertype;
+            action->mpls.label = mpls_lse_to_label(mpls_push->mpls_lse);
+            action->mpls.tc = mpls_lse_to_tc(mpls_push->mpls_lse);
+            action->mpls.ttl = mpls_lse_to_ttl(mpls_push->mpls_lse);
+            action->mpls.bos = mpls_lse_to_bos(mpls_push->mpls_lse);
+            action->type = TC_ACT_MPLS_PUSH;
+            flower.action_count++;
+        }
+
         else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");
             const struct nlattr *a = nl_attr_get(nla);
@@ -1714,23 +1738,26 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             switch (type) {
                 case OVS_KEY_ATTR_ADD_FIELD: {
                     VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
-                    /*uint8_t in_port_int = p_key->in_port;
-                    uint8_t out_port_int = p_key->out_port;*/
                     const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
-                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[0]=:%d", add_field_key->value[0]);
+                    VLOG_INFO("++++++zq netdev_flow_put:  add_field_key_value[0]=:%d", add_field_key->value[0]);
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[1]);
-                    uint8_t in_port_int = 0;
-                    uint8_t out_port_int = 0;
+                    uint8_t in_port_int = add_field_key->in_port;
+                    VLOG_INFO("++++++zq in_port_int: %d", add_field_key->in_port);
+                    uint8_t out_port_int = add_field_key->out_port;
+                    VLOG_INFO("++++++zq out_port_int: %d", add_field_key->out_port);
                     ovs_be16 tci = (ovs_be16) (out_port_int << 8) | in_port_int;
-                    uint16_t int_type = (uint16_t) (add_field_key->value[0]<< 8) | add_field_key->value[1];
+                    uint16_t int_type = (uint16_t) (add_field_key->value[1]<< 8) | add_field_key->value[0];
 //                    uint16_t int_type = 0x0908;
                     VLOG_INFO("++++++zq netdev_flow_put: int_type:0x%"PRIx16, int_type);
+                    VLOG_INFO("++++++zq netdev_flow_put: tci:0x%"PRIx16, tci);
 
-                    action->vlan.vlan_push_tpid = ETH_TYPE_VLAN;
+                    action->vlan.vlan_push_tpid = int_type;
                     VLOG_INFO("++++++zq netdev_flow_put: action->vlan.vlan_push_tpid:0x%"PRIx16, action->vlan.vlan_push_tpid);
                     action->vlan.vlan_push_id = vlan_tci_to_vid(tci);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->vlan.vlan_push_id:0x%"PRIx16, action->vlan.vlan_push_id);
                     action->vlan.vlan_push_prio = vlan_tci_to_pcp(tci);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->vlan.vlan_push_prio:0x%"PRIx16, action->vlan.vlan_push_prio);
                     action->type = TC_ACT_VLAN_PUSH;
                     flower.action_count++;
                 }

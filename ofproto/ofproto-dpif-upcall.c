@@ -1600,18 +1600,18 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
         VLOG_INFO("++++++zq handle_upcalls: loop run %dth time", i);
 
         if (should_install_flow(udpif, upcall)) { //zq note :run
-            VLOG_INFO("+++++++++++zq:  handle_upcalls: should_install_flow");
+            /*VLOG_INFO("+++++++++++zq:  handle_upcalls: should_install_flow");*/
             struct udpif_key *ukey = upcall->ukey;
 
             if (ukey_install(udpif, ukey)) { //zq note :run
-                VLOG_INFO("+++++++++++zq:  handle_upcalls: ukey_install");
+                /*VLOG_INFO("+++++++++++zq:  handle_upcalls: ukey_install");*/
                 upcall->ukey_persists = true;
                 put_op_init(&ops[n_ops++], ukey, DPIF_FP_CREATE);
             }
         }
 
         if (upcall->odp_actions.size) {
-            VLOG_INFO("+++++++++++zq:  handle_upcalls: upcall->odp_actions.size=%u", upcall->odp_actions.size);
+            /*VLOG_INFO("+++++++++++zq:  handle_upcalls: upcall->odp_actions.size=%u", upcall->odp_actions.size);*/
             op = &ops[n_ops++];
             op->ukey = NULL;
             op->dop.type = DPIF_OP_EXECUTE;

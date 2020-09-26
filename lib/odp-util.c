@@ -7715,6 +7715,10 @@ get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth
         for (int i = 0; i < eth->len; i++) {
             eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
             VLOG_INFO("++++++zq get_add_pof_field_key:  eth->value[%d]=%d", i, eth->value[i]);
+            eth->in_port = flow->telemetry.in_port;
+            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->in_port=%d", eth->in_port);
+            eth->out_port = flow->telemetry.out_port;
+            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->out_port=%d", eth->out_port);
         }
     } else {   // add INT fields which come from ovs, value[0] stores the INT intent
         eth->value[0] = flow->value[index][0];
@@ -7741,14 +7745,18 @@ get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *et
     if (eth->field_id != 0xffff) {  // add static fields which come from controller
         for (int i = 0; i < eth->len; i++) {
             eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
-            VLOG_INFO("++++++zq get_add_field_key(from controller):  eth->value[%d]=%d", i, eth->value[i]);
+            VLOG_INFO("++++++zq get_pof_add_field_mask(from controller):  eth->value[%d]=%d", i, eth->value[i]);
+            eth->in_port = flow->telemetry.in_port;
+            eth->out_port = flow->telemetry.out_port;
+            VLOG_INFO("++++++zq get_pof_add_field_mask(from controller):  in_port=%d, out_port=%d", eth->in_port, eth->out_port);
+
         }
     } else {   // add INT fields which come from ovs, value[0] stores the INT intent
         eth->value[0] = flow->value[index][0];
         eth->device_id = flow->telemetry.device_id;
         eth->in_port = flow->telemetry.in_port;
         eth->out_port = flow->telemetry.out_port;
-        VLOG_INFO("++++++zq get_add_field_key(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
+        VLOG_INFO("++++++zq get_pof_add_field_mask(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
                   eth->value[0], eth->device_id, eth->in_port, eth->out_port);
     }
 }

@@ -1407,8 +1407,8 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                     break;
                 }
 
-                case DPIF_OP_EXECUTE: {
-                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_EXECUTE");
+                case DPIF_OP_EXECUTE: { //zq: kernel run
+                    /*VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_EXECUTE");*/
 
                     COVERAGE_INC(dpif_execute);
                     log_execute_message(dpif, &this_module, &op->execute,
