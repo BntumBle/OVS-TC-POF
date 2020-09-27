@@ -1715,20 +1715,49 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //                return err;
 //            }
 //        }
-        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_PUSH_MPLS)
+        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED)
         {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_PUSH_MPLS");
-            const struct ovs_action_push_mpls *mpls_push = nl_attr_get(nla);
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");
+            const struct nlattr *a = nl_attr_get(nla);
+            enum ovs_key_attr type = nl_attr_type(a);
+            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: type=%d", type);
+            switch (type) {
+                case OVS_KEY_ATTR_ADD_FIELD: {
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
+                    const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
+                    VLOG_INFO("++++++zq netdev_flow_put:  add_field_key_value[0]=:%d", add_field_key->value[0]);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[1]);
+                    uint8_t in_port_int = add_field_key->in_port;
+                    VLOG_INFO("++++++zq in_port_int: %d", add_field_key->in_port);
+                    uint8_t out_port_int = add_field_key->out_port;
+                    VLOG_INFO("++++++zq out_port_int: %d", add_field_key->out_port);
+                    ovs_be16 int_value = (ovs_be16) (out_port_int << 8) | in_port_int;
+                    uint16_t int_type = (uint16_t)(add_field_key->value[1] << 8) | add_field_key->value[0];
+                    VLOG_INFO("++++++zq netdev_flow_put: int_type:0x%"PRIx16, int_type);
+                    VLOG_INFO("++++++zq netdev_flow_put: int_value:0x%"PRIx16, int_value);
+                    ovs_be32 mpls_lse = (ovs_be32)(int_value << 16) | int_type;
 
-            action->mpls.proto = mpls_push->mpls_ethertype;
-            action->mpls.label = mpls_lse_to_label(mpls_push->mpls_lse);
-            action->mpls.tc = mpls_lse_to_tc(mpls_push->mpls_lse);
-            action->mpls.ttl = mpls_lse_to_ttl(mpls_push->mpls_lse);
-            action->mpls.bos = mpls_lse_to_bos(mpls_push->mpls_lse);
-            action->type = TC_ACT_MPLS_PUSH;
-            flower.action_count++;
+                    action->mpls.proto = 0x4788;
+                    VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"PRIx16, action->mpls.proto);
+                    action->mpls.label = mpls_lse_to_label(mpls_lse);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->mpls.label:0x%"PRIx16, action->mpls.label);
+                    action->mpls.tc = mpls_lse_to_tc(mpls_lse);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->mpls.tc:0x%"PRIx16, action->mpls.tc);
+                    action->mpls.ttl = mpls_lse_to_ttl(mpls_lse);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->mpls.ttl:0x%"PRIx16, action->mpls.ttl);
+                    action->mpls.bos = mpls_lse_to_bos(mpls_lse);
+                    VLOG_INFO("++++++zq netdev_flow_put: action->mpls.bos:0x%"PRIx16, action->mpls.bos);
+                    action->type = TC_ACT_MPLS_PUSH;
+                    flower.action_count++;
+                }
+                break;
+                default:
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: OVS_NOT_REACHED");
+                    OVS_NOT_REACHED();
+            }
         }
-
+/*
         else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");
             const struct nlattr *a = nl_attr_get(nla);
@@ -1767,7 +1796,8 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                     OVS_NOT_REACHED();
             }
 
-        } else if (nl_attr_type(nla) == OVS_ACTION_ATTR_CT) {
+        }*/
+        else if (nl_attr_type(nla) == OVS_ACTION_ATTR_CT) {
             const struct nlattr *ct = nl_attr_get(nla);
             const size_t ct_len = nl_attr_get_size(nla);
 
