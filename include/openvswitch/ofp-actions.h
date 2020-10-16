@@ -62,6 +62,7 @@ struct vl_mff_map;
 #define OFPACTS                                                         \
     /* Output. */                                                       \
     OFPACT(OUTPUT,          ofpact_output,      ofpact, "output")       \
+    OFPACT(DROP,            ofpact_drop,        ofpact, "drop")         \
     OFPACT(GROUP,           ofpact_group,       ofpact, "group")        \
     OFPACT(CONTROLLER,      ofpact_controller,  userdata, "controller") \
     OFPACT(ENQUEUE,         ofpact_enqueue,     ofpact, "enqueue")      \
@@ -70,6 +71,7 @@ struct vl_mff_map;
                                                                         \
     /* Header changes. */                                               \
     OFPACT(SET_FIELD,       ofpact_set_field,   ofpact, "set_field")    \
+    OFPACT(MODIFY_FIELD,    ofpact_modify_field,ofpact, "modify_field") \
     OFPACT(ADD_FIELD,       ofpact_add_field,   ofpact, "add_field")    \
     OFPACT(DELETE_FIELD,    ofpact_delete_field,ofpact, "delete_field") \
     OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,    ofpact, "set_vlan_vid") \
@@ -609,6 +611,10 @@ BUILD_ASSERT_DECL(offsetof(struct ofpact_set_field, value)
                   == sizeof(struct ofpact_set_field));
 
 /* Use macro to not have to deal with constness. */
+#define ofpact_pof_set_field_mask(SF)                               \
+    ALIGNED_CAST(union mf_value *,                              \
+                 (uint8_t *)(SF)->value + (SF)->len)
+
 #define ofpact_set_field_mask(SF)                               \
     ALIGNED_CAST(union mf_value *,                              \
                  (uint8_t *)(SF)->value + (SF)->field->n_bytes)
@@ -1376,6 +1382,13 @@ struct ofpact_set_field *ofpact_put_set_field(struct ofpbuf *ofpacts,
                                               const struct mf_field *,
                                               const void *value,
                                               const void *mask);
+struct ofpact_set_field *ofpact_put_pof_set_field(struct ofpbuf *ofpacts,
+                                                  const struct mf_field *,
+                                                  const void *value,
+                                                  const void *mask,
+                                                  uint16_t field_id,
+                                                  uint16_t offset,
+                                                  uint16_t len);
 struct ofpact_set_field *ofpact_put_reg_load(struct ofpbuf *ofpacts,
                                              const struct mf_field *,
                                              const void *value,
