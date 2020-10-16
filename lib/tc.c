@@ -2389,6 +2389,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: flower->action->type: %d", action->type);
             switch (action->type) {
             case TC_ACT_PEDIT: {
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT start");
                 act_offset = nl_msg_start_nested(request, act_index++);
                 error = nl_msg_put_flower_rewrite_pedits(request, flower);
                 if (error) {
@@ -2447,11 +2448,13 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             }
             break;
             case TC_ACT_MPLS_PUSH: {
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH start");
                 act_offset = nl_msg_start_nested(request, act_index++);
                 nl_msg_put_act_push_mpls(request, action->mpls.proto,
                                          action->mpls.label, action->mpls.tc,
                                          action->mpls.ttl, action->mpls.bos);
                 nl_msg_end_nested(request, act_offset);
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH end");
             }
             break;
             case TC_ACT_MPLS_SET: {
