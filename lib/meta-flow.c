@@ -721,6 +721,18 @@ mf_is_value_valid(const struct mf_field *mf, const union mf_value *value)
     }
 }
 
+/* zq:Copies the value of field 'mf' from 'flow' into 'value'.  The caller is
+ * responsible for ensuring that 'flow' meets 'mf''s prerequisites. */
+void
+pof_mf_get_value(const struct pof_match_u *mf, const struct pof_fp_flow *flow,
+                 union mf_value *value)
+{
+    int i = (mf->offset/8);
+    /*to do: considering the appropriate length of a field in struct pof_fp_flow. */
+    value->be64 = flow->pof_normal[i];
+    /*VLOG_INFO("++++++tsf pof_mf_get_value: value->be64:%d", ntohll(value->be64));*/
+}
+
 /* Copies the value of field 'mf' from 'flow' into 'value'.  The caller is
  * responsible for ensuring that 'flow' meets 'mf''s prerequisites. */
 void
@@ -1485,6 +1497,36 @@ mf_mask_field_masked(const struct mf_field *mf, const union mf_value *mask,
     mf_set_flow_value(mf, &mask_value, &wc->masks);
 }
 
+void
+pof_mf_mask_field_masked(const struct pof_match_u *mf, const union mf_value *mask,
+                         struct pof_fp_flow_wildcards *wc)
+{
+    union mf_value mask_value;
+    int inner_off = mf->offset - (mf->offset/8)*8;
+    int i = inner_off;
+
+    pof_mf_get_value(mf, &wc->masks, &mask_value);
+    /*VLOG_INFO("+++++++++++sqy pof_mf_mask_field_masked: inneroff=%d, mf->len=%d", inner_off , mf->len );*/
+    int len = inner_off + mf->len;
+    for ( ; i < len && i < 8; i++) {
+        /*VLOG_INFO("+++++++++++sqy pof_mf_mask_field_masked 111: mask_value.b[%d] =%d,mask->b[%d] =%d",
+                          i, mask_value.b[i], i-inner_off, mask->b[i-inner_off]);*/
+        mask_value.b[i] |= mask->b[i-inner_off];
+        /*VLOG_INFO("+++++++++++sqy pof_mf_mask_field_masked 222: mask_value.b[%d] =%d,mask->b[%d] =%d",
+                 i, mask_value.b[i], i-inner_off, mask->b[i-inner_off]);*/
+    }
+
+    /* to do: the field which will be 'set_field' corrosponds to more than
+     * one field in struct pof_fp_flow.
+     * while( len - 8 >0){
+        len = len -8;
+        for (size_t z = 0 ; z < len && z < 8 && i<128; z++, i++) {
+            mask_value.b[i] |= mask->b[i-j];
+        }
+    }*/
+    pof_mf_set_flow_value(mf, &mask_value, &wc->masks);
+}
+
 /* Unwildcard 'wc' member field described by 'mf'.  The caller is
  * responsible for ensuring that 'mask' meets 'mf''s prerequisites. */
 void
@@ -1542,6 +1584,19 @@ mf_field_len(const struct mf_field *mf, const union mf_value *value,
     }
 
     return len;
+}
+
+/* Sets 'flow' member field described by 'mf' to 'value'.  The caller is
+ * responsible for ensuring that 'flow' meets 'mf''s prerequisites.*/
+void
+pof_mf_set_flow_value(const struct pof_match_u *mf,
+                    const union mf_value *value, struct pof_fp_flow *flow)
+{
+    int i = (mf->offset/8);
+    /*VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value 111");*/
+    /*to do: considering the appropriate length of a field in struct pof_fp_flow. */
+    flow->pof_normal[i] = value->be64;
+    /*VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value 222, flow->normal[%d]=%d",i, ntohll(flow->pof_normal[i]));*/
 }
 
 /* Sets 'flow' member field described by 'mf' to 'value'.  The caller is
@@ -1902,6 +1957,23 @@ mf_set_flow_value_masked(const struct mf_field *field,
     apply_mask((const uint8_t *) value, (const uint8_t *) mask,
                (uint8_t *) &tmp, field->n_bytes);
     mf_set_flow_value(field, &tmp, flow);
+}
+
+void
+pof_mf_set_flow_value_v1(const struct pof_match_u *field,
+                         const union mf_value *value,
+                         const union mf_value *mask,
+                         struct pof_flow *flow, int index)
+{
+    union mf_value tmp;
+
+    for(int i=0; i<POF_MAX_FIELD_LENGTH_IN_BYTE; i++){
+//        VLOG_INFO("+++++++++++tsf pof_mf_set_flow_value_masked value->b[i]= %d, flow->value[0][i]=%d", value->b[i], flow->value[0][i]);
+        flow->value[index][i] = value->b[i];
+        flow->mask[index][i] = mask->b[i];
+        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked value->b[i]= %d, flow->value[0][i]=%d", value->b[i], flow->value[0][i]);
+        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked mask->b[i]= %d, flow->mask[0][i]=%d", mask->b[i], flow->mask[0][i]);
+    }
 }
 
 bool

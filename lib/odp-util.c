@@ -5962,10 +5962,19 @@ ovs_to_odp_frag(uint8_t nw_frag, bool is_mask)
 }
 
 static void get_ethernet_key(const struct flow *, struct ovs_key_ethernet *);
+static void get_pof_set_field_key(const struct pof_flow *, struct ovs_key_set_field *, int);
+static void get_pof_set_field_mask(const struct pof_flow *, struct ovs_key_set_field *, int);
+static void get_pof_modify_field_key(const struct pof_flow *, struct ovs_key_modify_field *, int);
+static void get_pof_modify_field_mask(const struct pof_flow *, struct ovs_key_modify_field *, int);
 static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int);
 static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int);
+static void get_pof_delete_field_key(const struct pof_flow *, struct ovs_key_delete_field *, int);
+static void get_pof_delete_field_mask(const struct pof_flow *, struct ovs_key_delete_field *, int);
 static void put_ethernet_key(const struct ovs_key_ethernet *, struct flow *);
+static void put_pof_set_field_key(const struct ovs_key_set_field *, struct pof_flow *, int);
+static void put_pof_modify_field_key(const struct ovs_key_modify_field *, struct pof_flow *, int);
 static void put_pof_add_field_key(const struct ovs_key_add_field *, struct pof_flow *, int);
+static void put_pof_delete_field_key(const struct ovs_key_delete_field *, struct pof_flow *, int);
 static void get_ipv4_key(const struct flow *, struct ovs_key_ipv4 *,
                          bool is_mask);
 static void put_ipv4_key(const struct ovs_key_ipv4 *, struct flow *,
@@ -7612,7 +7621,7 @@ pof_commit(enum ovs_key_attr attr, bool use_masked_set,
 
 
         if (use_masked_set && !fully_masked) { //run here
-            VLOG_INFO("++++++zq pof_commit: attr = %d", attr);
+            VLOG_INFO("++++++zq pof_commit: commit_masked_set_action: attr = %d", attr);
             commit_masked_set_action(odp_actions, attr, key, mask, size);
         } else {
             if (!fully_masked) {
@@ -7672,6 +7681,149 @@ put_ethernet_key(const struct ovs_key_ethernet *eth, struct flow *flow)
 {
     flow->dl_src = eth->eth_src;
     flow->dl_dst = eth->eth_dst;
+}
+
+static void
+commit_pof_set_field_action(const struct flow *flow, struct flow *base_flow,
+                            struct ofpbuf *odp_actions,
+                            struct flow_wildcards *wc,
+                            bool use_masked, int index)
+{
+    struct ovs_key_set_field key, base, mask;
+
+    struct pof_flow * pflow = flow;
+    struct pof_flow * pbase = base_flow;
+    get_pof_set_field_key(pflow, &key, index);
+    get_pof_set_field_key(pbase, &base, index);
+    use_masked = true;
+    /*get_set_field_key(&wc->masks, &mask);*/
+    get_pof_set_field_mask(pflow, &mask, index);
+    /* for(int i=0; i<16; i++){
+         mask.value[i] = 254;
+     }*/
+
+    VLOG_INFO("+++++++++++zq commit_pof_set_field_action: before pof_commit");
+    if (pof_commit(OVS_KEY_ATTR_SET_FIELD, use_masked,
+                   &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
+        VLOG_INFO("+++++++++++zq commit_pof_set_field_action: after pof_commit");
+        put_pof_set_field_key(&base, base_flow, index);
+        put_pof_set_field_key(&mask, &wc->masks, index);
+    }
+}
+
+static void
+get_pof_set_field_key(const struct pof_flow *flow, struct ovs_key_set_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+
+    for(int i=0; i < eth->len; i++){
+        eth->value[i] = flow->value[index][i];
+        VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->value[i]=%d, flow->value[index][i] = %d", eth->value[i], flow->value[index][i]);
+    }
+}
+
+static void
+get_pof_set_field_mask(const struct pof_flow *flow, struct ovs_key_set_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+
+    for(int i=0; i < eth->len; i++){
+        eth->value[i] = flow->mask[index][i];
+        VLOG_INFO("+++++++++++zq get_set_field_mask: eth->value[i]=%d, flow->mask[0][i] = %d", eth->value[i], flow->mask[0][i]);
+    }
+}
+
+static void
+put_pof_set_field_key(const struct ovs_key_set_field *eth, struct pof_flow *flow, int index)
+{
+    flow->field_id[index] = htons(eth->field_id);
+    flow->len[index] = htons(eth->len);
+    flow->offset[index] = htons(eth->offset);
+    for(int i=0; i < eth->len; i++){
+        flow->value[index][i] = eth->value[i];
+        VLOG_INFO("++++++zq put_set_field_key:flow->value[0][%d]=%d",i, flow->value[0][i]);
+    }
+}
+
+static void
+commit_pof_modify_field_action(const struct flow *flow, struct flow *base_flow,
+                               struct ofpbuf *odp_actions,
+                               struct flow_wildcards *wc,
+                               bool use_masked, int index)
+{
+    struct ovs_key_modify_field key, base, mask;
+
+    struct pof_flow * pflow = flow;
+    struct pof_flow * pbase = base_flow;
+
+    get_pof_modify_field_key(pflow, &key, index);
+    get_pof_modify_field_key(pbase, &base, index);
+    use_masked = true;
+    get_pof_modify_field_mask(pflow, &mask, index);
+
+    VLOG_INFO("+++++++++++tsf commit_pof_modify_field_action: before pof_commit");
+    if (pof_commit(OVS_KEY_ATTR_MODIFY_FIELD, use_masked,
+                   &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
+        VLOG_INFO("+++++++++++tsf commit_pof_modify_field_action: after pof_commit");
+        put_pof_modify_field_key(&base, base_flow, index);
+        put_pof_modify_field_key(&mask, &wc->masks, index);
+    }
+}
+
+static void
+get_pof_modify_field_key(const struct pof_flow *flow, struct ovs_key_modify_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+    VLOG_INFO("++++++tsf get_modify_field_key: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+                    eth->field_id, eth->len, eth->offset);
+
+    // tsf: increment value has been cutoff to uint8_t
+    eth->value[0] = flow->value[index][0];
+
+//	for (int i = 0; i < eth->len; i++) {
+//		eth->value[i] = flow->value[index][i];  // tsf: increment value has been cutoff to uint8_t
+//		/*VLOG_INFO("++++++tsf get_modify_field_key:  eth->value[%d]=%d", i, eth->value[i]);*/
+//	}
+}
+
+static void
+get_pof_modify_field_mask(const struct pof_flow *flow, struct ovs_key_modify_field *eth, int index)
+{
+    eth->field_id = ntohs(flow->field_id[index]);
+    eth->len = ntohs(flow->len[index]);
+    eth->offset = ntohs(flow->offset[index]);
+    VLOG_INFO("++++++tsf get_modify_field_mask: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+                        eth->field_id, eth->len, eth->offset);
+
+    // tsf: increment value has been cutoff to uint8_t
+    eth->value[0] = flow->value[index][0];
+
+//    for (int i = 0; i < eth->len; i++) {
+//        eth->value[i] = flow->mask[index][i];  // tsf: increment value has been cutoff to uint8_t
+//        /*VLOG_INFO("++++++tsf get_modify_field_mask:  eth->value[%d]=%d", i, eth->value[i]);*/
+//    }
+}
+
+static void
+put_pof_modify_field_key(const struct ovs_key_modify_field *eth, struct pof_flow *flow, int index)
+{
+    flow->field_id[index] =htons(eth->field_id);
+    flow->len[index] = htons(eth->len);
+    flow->offset[index] = htons(eth->offset);
+
+    // tsf: increment value has been cutoff to uint8_t
+    flow->value[index][0] = eth->value[0];
+
+//    for (int i = 0; i < eth->len; i++) {
+//        flow->value[index][i] = eth->value[i];
+//        /*VLOG_INFO("++++++tsf put_modify_field_key:eth->value[%d]=%d",i, eth->value[i]);*/
+//    }
 }
 
 static void
@@ -7785,6 +7937,97 @@ put_pof_add_field_key(const struct ovs_key_add_field *eth, struct pof_flow *flow
 }
 
 static void
+commit_pof_delete_field_action(const struct flow *flow, struct flow *base_flow,
+                               struct ofpbuf *odp_actions,
+                               struct flow_wildcards *wc,
+                               bool use_masked, int index)
+{
+    struct ovs_key_delete_field key, base, mask;
+
+    struct pof_flow * pflow = flow;
+    struct pof_flow * pbase = base_flow;
+
+    get_pof_delete_field_key(pflow, &key, index);
+    get_pof_delete_field_key(pbase, &base, index);
+    use_masked = true;
+    get_pof_delete_field_mask(pflow, &mask, index);
+
+    VLOG_INFO("+++++++++++tsf commit_pof_delete_field_action: before pof_commit");
+    if (pof_commit(OVS_KEY_ATTR_DELETE_FIELD, use_masked,
+                   &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
+        VLOG_INFO("+++++++++++tsf commit_pof_delete_field_action: after pof_commit");
+        put_pof_delete_field_key(&base, base_flow, index);
+        put_pof_delete_field_key(&mask, &wc->masks, index);
+    }
+}
+
+static void
+get_pof_delete_field_key(const struct pof_flow *flow, struct ovs_key_delete_field *eth, int index)
+{
+    struct pof_match *pm;
+    eth->len_type = flow->len[index];  // len_type
+    uint32_t *uint32 = (uint32_t *) flow->value[index];
+
+    switch(eth->len_type) {
+        case 0:  // POFVT_IMMEDIATE_NUM
+            eth->offset = ntohs(flow->offset[index]) / 8;
+            eth->len = ((uint16_t) *uint32) / 8;    // cut 32b to 16b
+            VLOG_INFO("+++++zq get_pof_delete_field: case0 offset=%d, len(uint32)=%d", eth->offset, eth->len);
+            break;
+        case 1:  // POFVT_FIELD
+            pm = (struct pof_match *) flow->value[index];
+            eth->offset = pm->offset / 8;
+            eth->len = pm->len / 8;
+            VLOG_INFO("++++++zq get_delete_field_key: case1 eth->offset=%d, eth->len=%d", eth->offset, eth->len);
+            break;
+    }
+
+}
+
+static void
+get_pof_delete_field_mask(const struct pof_flow *flow, struct ovs_key_delete_field *eth, int index)
+{
+    // no mask
+    struct pof_match *pm;
+    eth->len_type = flow->len[index];  // len_type
+    uint32_t *uint32 = (uint32_t *) flow->value[index];
+
+    switch(eth->len_type) {
+        case 0:  // POFVT_IMMEDIATE_NUM
+            eth->offset = ntohs(flow->offset[index]) / 8;
+            eth->len = ((uint16_t) *uint32) / 8;    // cut 32b to 16b
+            break;
+        case 1:  // POFVT_FIELD
+            pm = (struct pof_match *) flow->mask[index];
+            eth->offset = pm->offset / 8;
+            eth->len = pm->len / 8;
+            break;
+    }
+    VLOG_INFO("++++++zq get_delete_field_mask eth->offset=%d, eth->len=%d", eth->offset, eth->len);
+}
+
+static void
+put_pof_delete_field_key(const struct ovs_key_delete_field *eth, struct pof_flow *flow, int index)
+{
+    struct pof_match *pm;
+    flow->len[index] = eth->len_type;
+    uint32_t *uint32 = (uint32_t *) flow->value[index];
+
+    switch(eth->len_type) {
+        case 0:  // POFVT_IMMEDIATE_NUM
+            flow->offset[index] = htons(eth->offset * 8);
+            *uint32 = eth->len * 8;
+            break;
+        case 1:  // POFVT_FIELD
+            pm = (struct pof_match *) flow->value[index];
+            pm->offset = eth->offset * 8;
+            pm->len = eth->len * 8;
+            break;
+    }
+    /*VLOG_INFO("++++++tsf put_delete_field_key eth->offset=%d, eth->len=%d", ntohs(flow->offset[index]), *uint32);*/
+}
+
+static void
 commit_pof_action(const struct flow *flow, struct flow *base_flow,
                   struct ofpbuf *odp_actions,
                   struct flow_wildcards *wc,
@@ -7800,25 +8043,25 @@ commit_pof_action(const struct flow *flow, struct flow *base_flow,
 
         switch (action_flag) {
 
-//            case OFPACT_SET_FIELD:      // flag == 7
-//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_set_field_action.");*/
-//                commit_pof_set_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
-//                break;
+            case OFPACT_SET_FIELD:      // flag == 7
+                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_set_field_action.");*/
+                commit_pof_set_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+                break;
 //
-//            case OFPACT_MODIFY_FIELD:    // flag == 8
-//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_modify_field_action.");*/
-//                commit_pof_modify_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
-//                break;
+            case OFPACT_MODIFY_FIELD:    // flag == 8
+                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_modify_field_action.");*/
+                commit_pof_modify_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+                break;
 
             case OFPACT_ADD_FIELD:       // flag == 9
                 /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_add_field_action.");*/
                 commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
                 break;
 
-//            case OFPACT_DELETE_FIELD:    // flag == 10
-//                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_delete_field_action.");*/
-//                commit_pof_delete_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
-//                break;
+            case OFPACT_DELETE_FIELD:    // flag == 10
+                /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_delete_field_action.");*/
+                commit_pof_delete_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+                break;
         }
 
         i++;

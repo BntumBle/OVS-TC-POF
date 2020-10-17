@@ -6764,12 +6764,51 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
                                 false, group_bucket_action);
             break;
 
-//        case OFPACT_DROP:    /* zq: add OFPACT_DROP in #define OFPACTS */
-//            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_DROP");
-//            /* no operation means to drop */
-//            drop = ofpact_get_DROP(a);
-//            /*VLOG_INFO("action_drop has been done! The drop reason is %d.", drop->reason_code);*/
-//            break;
+        case OFPACT_DROP:    /* zq: add OFPACT_DROP in #define OFPACTS */
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_DROP");
+            /* no operation means to drop */
+            drop = ofpact_get_DROP(a);
+            /*VLOG_INFO("action_drop has been done! The drop reason is %d.", drop->reason_code);*/
+            break;
+
+        case OFPACT_SET_FIELD:  {
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_SET_FIELD->type:%d, len:%d", a->type, a->len);
+            set_field = ofpact_get_SET_FIELD(a);
+            struct pof_match_u pf;
+            pf.field_id = set_field->field_id;
+            pf.len = set_field->len;
+            pf.offset = set_field->offset;
+
+            flow->field_id[action_num] = htons(pf.field_id);
+            flow->len[action_num] = htons(pf.len);
+            flow->offset[action_num] = htons(pf.offset);
+            flow->flag[action_num] = OFPACT_SET_FIELD;
+
+            pof_mf_mask_field_masked(&pf, ofpact_pof_set_field_mask(set_field), wc);
+            pof_mf_set_flow_value_v1(&pf, set_field->value,
+                    ofpact_pof_set_field_mask(set_field),flow, action_num);
+
+            action_num++;
+        }
+            break;
+
+        case OFPACT_MODIFY_FIELD: {
+            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_MODIFY_FIELD->type:%d, len:%d", a->type, a->len);
+            modify_field = ofpact_get_MODIFY_FIELD(a);
+
+            flow->field_id[action_num] = htons(modify_field->field_id);
+            flow->len[action_num] = htons(modify_field->len_field / 8);  // tsf: bytes
+            flow->offset[action_num] = htons(modify_field->offset / 8);
+            flow->flag[action_num] = OFPACT_MODIFY_FIELD;
+
+            /*tsf: cut off increment from uint32_t (no need) into uint8_t. If you insist on
+                   32b, refer to codes in case OFPACT_DELETE_FIELD. It's similar codes.*/
+            flow->value[action_num][0] = modify_field->increment;
+            flow->mask[action_num][0] = 0xff;
+
+            action_num++;
+        }
+            break;
 
         case OFPACT_ADD_FIELD: {
             VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);
@@ -6792,32 +6831,31 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         }
             break;
 
-        case OFPACT_DELETE_FIELD:
-//            {
-//            /*VLOG_INFO("+++++++tsf pof_do_xlate_actions OFPACT_DELETE_FIELD->type:%d, len:%d", a->type, a->len);*/
-//            delete_field = ofpact_get_DELETE_FIELD(a);
-//
-//            flow->offset[action_num] = htons(delete_field->tag_pos);
-//            flow->len[action_num] = delete_field->len_type;
-//            flow->flag[action_num] = OFPACT_DELETE_FIELD;
-//            /*VLOG_INFO("++++++tsf pof_do_xlate_actions delete_field, offset=%d, len=%d", delete_field->tag_pos,delete_field->len_type);*/
-//
-//            struct pof_match *pm;
-//            memset(flow->value[action_num], 0x00, sizeof(flow->value[action_num]));
-//            memset(flow->mask[action_num], 0x00, sizeof(flow->mask[action_num]));
-//            if (flow->len[action_num] == 0) { // POFVT_IMMEDIATE_NUM, will cut 32b to 16 b in commit_odp_actions()
-//                memcpy(flow->value[action_num], &delete_field->tag_len.value, sizeof(delete_field->tag_len.value));
-//                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len.value));
-//                /*VLOG_INFO("++++++tsf pof_do_xlate_actions offset=%d, len=%d", delete_field->tag_pos, delete_field->tag_len.value);*/
-//            } else {  // // POFVT_FIELD
-//                memcpy(flow->value[action_num], &delete_field->tag_len, sizeof(delete_field->tag_len));  // tsf: copy all union
-//                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len));
-//                /*pm = (struct pof_match *) flow->value[3];
-//                VLOG_INFO("++++++tsf pof_do_xlate_actions offset=%d, len=%d", pm->offset/8, pm->len/8);*/
-//                }
-//                action_num++;
-//            }
-                break;
+        case OFPACT_DELETE_FIELD:{
+            VLOG_INFO("+++++++tsf pof_do_xlate_actions OFPACT_DELETE_FIELD->type:%d, len:%d", a->type, a->len);
+            delete_field = ofpact_get_DELETE_FIELD(a);
+
+            flow->offset[action_num] = htons(delete_field->tag_pos);
+            flow->len[action_num] = delete_field->len_type;
+            flow->flag[action_num] = OFPACT_DELETE_FIELD;
+            /*VLOG_INFO("++++++tsf pof_do_xlate_actions delete_field, offset=%d, len=%d", delete_field->tag_pos,delete_field->len_type);*/
+
+            struct pof_match *pm;
+            memset(flow->value[action_num], 0x00, sizeof(flow->value[action_num]));
+            memset(flow->mask[action_num], 0x00, sizeof(flow->mask[action_num]));
+            if (flow->len[action_num] == 0) { // POFVT_IMMEDIATE_NUM, will cut 32b to 16 b in commit_odp_actions()
+                memcpy(flow->value[action_num], &delete_field->tag_len.value, sizeof(delete_field->tag_len.value));
+                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len.value));
+                VLOG_INFO("++++++tsf pof_do_xlate_actions(POFVT_IMMEDIATE_NUM) offset=%d, len=%d", delete_field->tag_pos, delete_field->tag_len.value);
+            } else {  // // POFVT_FIELD
+                memcpy(flow->value[action_num], &delete_field->tag_len, sizeof(delete_field->tag_len));  // tsf: copy all union
+                memset(flow->mask[action_num], 0xff, sizeof(delete_field->tag_len));
+                pm = (struct pof_match *) flow->value[3];
+                VLOG_INFO("++++++tsf pof_do_xlate_actions(POFVT_FIELD) offset=%d, len=%d", pm->offset/8, pm->len/8);
+            }
+            action_num++;
+            }
+            break;
 
         case OFPACT_GROUP:
             if (xlate_group_action(ctx, ofpact_get_GROUP(a)->group_id, last)) {

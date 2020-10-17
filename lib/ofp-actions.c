@@ -171,12 +171,12 @@ enum ofp_raw_action_type {
      * TCI.] */
     OFPAT_RAW11_PUSH_VLAN,
 
-    /* OF1.0(3): void. */
+    /* OF1.0(33): void. */
     OFPAT_RAW10_STRIP_VLAN,
     /* OF1.1+(18): void. */
     OFPAT_RAW11_POP_VLAN,
 
-    /* OF1.0(44), OF1.1(3), OF1.2+(3) is deprecated (use Set-Field): struct
+    /* OF1.0(44), OF1.1(33), OF1.2+(33) is deprecated (use Set-Field): struct
      * ofp_action_dl_addr. */
     OFPAT_RAW_SET_DL_SRC,
 
@@ -192,10 +192,10 @@ enum ofp_raw_action_type {
      * ovs_be32. */
     OFPAT_RAW_SET_NW_DST,
 
-    /* OF1.0(8), OF1.1(7), OF1.2+(7) is deprecated (use Set-Field): uint8_t. */
+    /* OF1.0(38), OF1.1(77), OF1.2+(77) is deprecated (use Set-Field): uint8_t. */
     OFPAT_RAW_SET_NW_TOS,
 
-    /* OF1.1(8), OF1.2+(8) is deprecated (use Set-Field): uint8_t. */
+    /* OF1.1(38), OF1.2+(38) is deprecated (use Set-Field): uint8_t. */
     OFPAT_RAW11_SET_NW_ECN,
 
     /* OF1.0(9), OF1.1(9), OF1.2+(9) is deprecated (use Set-Field):
@@ -791,10 +791,9 @@ format_DROP(const struct ofpact_drop *a, struct ds *s)
 
 /* zq: parse_DROP. */
 static char * OVS_WARN_UNUSED_RESULT
-parse_DROP(char *arg, struct ofpbuf *ofpacts,
-           enum ofputil_protocol *usable_protocols OVS_UNUSED)
+parse_DROP(char *arg, const struct ofpact_parse_params *pp)
 {
-    struct ofpact_drop *od = ofpact_put_DROP(ofpacts);
+    struct ofpact_drop *od = ofpact_put_DROP(pp->ofpacts);
     VLOG_INFO("++++++++tsf parse_DROP: reason_code: %d.", str_to_u32(arg, od->reason_code));
     return str_to_u32(arg, od->reason_code);
 }
@@ -900,9 +899,8 @@ format_MODIFY_FIELD(const struct ofpact_modify_field *a, struct ds *s)
  * parse the str to uint*_t
  * */
 static char * OVS_WARN_UNUSED_RESULT
-parse_MODIFY_FIELD(char *arg, struct ofpbuf *ofpacts,
-                   enum ofputil_protocol *usable_protocols OVS_UNUSED) {
-    struct ofpact_modify_field *modify_field = ofpact_put_MODIFY_FIELD(ofpacts);
+parse_MODIFY_FIELD(char *arg, const struct ofpact_parse_params *pp) {
+    struct ofpact_modify_field *modify_field = ofpact_put_MODIFY_FIELD(pp->ofpacts);
 
     char *key, *value;
     while (ofputil_parse_key_value(&arg, &key, &value)) {
@@ -3887,7 +3885,7 @@ pof_set_field_parse__(char *arg, const struct ofpact_parse_params *pp)
     }
 
     delim[0] = '\0';
-    error = mf_parse(mf, value, &sf_value, &sf_mask);
+    error = mf_parse(mf, value, pp->port_map, &sf_value, &sf_mask);
     if (error) {
         return error;
     }

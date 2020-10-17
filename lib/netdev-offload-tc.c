@@ -1722,6 +1722,12 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             enum ovs_key_attr type = nl_attr_type(a);
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: type=%d", type);
             switch (type) {
+                case OVS_KEY_ATTR_SET_FIELD: {
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_SET_FIELD");
+                    const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
+
+                }
+                break;
                 case OVS_KEY_ATTR_ADD_FIELD: {
                     VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
                     const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
