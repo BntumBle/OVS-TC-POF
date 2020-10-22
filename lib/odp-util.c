@@ -7717,6 +7717,7 @@ get_pof_set_field_key(const struct pof_flow *flow, struct ovs_key_set_field *eth
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
     eth->offset = ntohs(flow->offset[index]);
+    VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->offset=%d", eth->offset);
 
     for(int i=0; i < eth->len; i++){
         eth->value[i] = flow->value[index][i];

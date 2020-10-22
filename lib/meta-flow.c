@@ -1971,8 +1971,8 @@ pof_mf_set_flow_value_v1(const struct pof_match_u *field,
 //        VLOG_INFO("+++++++++++tsf pof_mf_set_flow_value_masked value->b[i]= %d, flow->value[0][i]=%d", value->b[i], flow->value[0][i]);
         flow->value[index][i] = value->b[i];
         flow->mask[index][i] = mask->b[i];
-        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked value->b[i]= %d, flow->value[0][i]=%d", value->b[i], flow->value[0][i]);
-        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked mask->b[i]= %d, flow->mask[0][i]=%d", mask->b[i], flow->mask[0][i]);
+//        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked value->b[i]= %d, flow->value[0][i]=%d", value->b[i], flow->value[0][i]);
+//        VLOG_INFO("+++++++++++sqy pof_mf_set_flow_value_masked mask->b[i]= %d, flow->mask[0][i]=%d", mask->b[i], flow->mask[0][i]);
     }
 }
 

@@ -1597,7 +1597,7 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
         struct upcall *upcall = &upcalls[i];
         const struct dp_packet *packet = upcall->packet;
         struct ukey_op *op;
-        VLOG_INFO("++++++zq handle_upcalls: loop run %dth time", i);
+//        VLOG_INFO("++++++zq handle_upcalls: loop run %dth time", i);
 
         if (should_install_flow(udpif, upcall)) { //zq note :run
             /*VLOG_INFO("+++++++++++zq:  handle_upcalls: should_install_flow");*/

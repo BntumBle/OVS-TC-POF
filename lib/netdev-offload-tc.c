@@ -1060,7 +1060,119 @@ parse_put_flow_ct_action(struct tc_flower *flower,
         flower->action_count++;
         return 0;
 }
+/*zq: set_field*/
+static int
+parse_put_flow_set_masked_action_pof(struct tc_flower *flower,
+                                 struct tc_action *action,
+                                 const struct ovs_key_set_field *set_field_key,
+                                 const struct ovs_key_set_field *set_field_mask,
+                                 bool hasmask)
+{
+    VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof start");
+    static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+//    uint64_t set_stub[1024 / 8];
+//    struct ofpbuf set_buf = OFPBUF_STUB_INITIALIZER(set_stub);
+    uint8_t *key = (uint8_t *) &flower->rewrite.key;
+    uint8_t *mask = (uint8_t *) &flower->rewrite.mask;
+//    const struct nlattr *attr;
+    int i, j, type = 0;
+//    uint8_t *set_data, *set_mask;
+//    size_t size;
 
+    /* copy so we can set attr mask to 0 for used ovs key struct members  */
+//    attr = ofpbuf_put(&set_buf, set, set_len);
+    /*zq: Convert offset to type here*/
+    switch(set_field_key->offset){
+        case 0:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set dmac");
+            type = 4;
+            i = 1;
+            break;
+        case 6:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set smac");
+            type = 4;
+            i = 0;
+            break;
+        case 12:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set type");
+            type = 6;
+            i = 0;
+            break;
+        case 15:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set tos");
+            type = 7;
+            i = 3;
+            break;
+        case 22:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set ttl");
+            type = 7;
+            i = 2;
+            break;
+        case 26:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set srcip");
+            type = 7;
+            i = 0;
+            break;
+        case 30:
+            VLOG_INFO("++++zq: parse_put_flow_set_masked_action_pof: set dstip");
+            type = 7;
+            i = 1;
+            break;
+        default:
+            VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof: offset=%d", set_field_key->offset);
+    }
+//    type = nl_attr_type(attr); //zq: Convert offset to type here
+//    size = nl_attr_get_size(attr) / 2;
+//    set_data = CONST_CAST(char *, nl_attr_get(attr));
+//    set_mask = set_data + size;
+
+    if (type >= ARRAY_SIZE(set_flower_map)
+        || !set_flower_map[type][0].size) {
+        VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof:type is not in set_flower_map or tc_flower_key");
+        VLOG_DBG_RL(&rl, "unsupported set action type: %d", type);
+//        ofpbuf_uninit(&set_buf);
+        return EOPNOTSUPP;
+    }
+
+    struct netlink_field *f = &set_flower_map[type][i];
+
+    if (!f->size) { //zq:equivalent to if(value)
+        VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof:!f->size");
+        return EOPNOTSUPP;
+    }
+
+    /* copy masked value */
+    VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof:f->size = %d", f->size);
+//    for(int k=0; k<set_field_key->len; k++) {
+//        *(set_data + k) = set_field_key->value[k];
+//        *(set_mask + k) = set_field_mask->value[k];
+//    }
+
+    for (j = 0; j < f->size; j++) {
+        uint8_t maskval = hasmask ? set_field_mask->value[j] : 0xFF;
+
+        key[f->flower_offset + j] = maskval & set_field_key->value[j];
+        mask[f->flower_offset + j] = maskval;
+    }
+
+        /* set its mask to 0 to show it's been used. */
+//        if (hasmask) {
+//            memset(set_mask + f->offset, 0, f->size);
+//        }
+
+    if (!is_all_zeros(&flower->rewrite, sizeof flower->rewrite)) {
+        VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof:is_all_zeros == false");
+        if (flower->rewrite.rewrite == false) {
+            VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof:rewrite == false");
+            flower->rewrite.rewrite = true;
+            action->type = TC_ACT_PEDIT;
+            flower->action_count++;
+        }
+    }
+
+    VLOG_INFO("+++++++++++zq: parse_put_flow_set_masked_action_pof end");
+    return 0;
+}
 static int
 parse_put_flow_set_masked_action(struct tc_flower *flower,
                                  struct tc_action *action,
@@ -1352,6 +1464,7 @@ flower_match_to_tun_opt(struct tc_flower *flower, const struct flow_tnl *tnl,
     flower->mask.tunnel.metadata.present.len = tnl->metadata.present.len;
 }
 
+#define get_mask(a, type) ((const type *)(const void *)(a + 1) + 1)
 static int
 netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    struct nlattr *actions, size_t actions_len,
@@ -1390,7 +1503,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     mask->recirc_id = 0;
 
     if (flow_tnl_dst_is_set(&key->tunnel)) {
-        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: flow_tnl_dst_is_set(&key->tunnel)");
+//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: flow_tnl_dst_is_set(&key->tunnel)");
         VLOG_DBG_RL(&rl,
                     "tunnel: id %#" PRIx64 " src " IP_FMT
                     " dst " IP_FMT " tp_src %d tp_dst %d",
@@ -1424,14 +1537,14 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     mask->mpls_lse[0] = 0;
 
     if (mask->vlans[0].tpid && eth_type_vlan(key->vlans[0].tpid)) {
-        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tpid && eth_type_vlan(key->vlans[0].tpid)");
+//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tpid && eth_type_vlan(key->vlans[0].tpid)");
         flower.key.encap_eth_type[0] = flower.key.eth_type;
         flower.mask.encap_eth_type[0] = flower.mask.eth_type;
         flower.key.eth_type = key->vlans[0].tpid;
         flower.mask.eth_type = mask->vlans[0].tpid;
     }
     if (mask->vlans[0].tci) {
-        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tci");
+//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[0].tci");
         ovs_be16 vid_mask = mask->vlans[0].tci & htons(VLAN_VID_MASK);
         ovs_be16 pcp_mask = mask->vlans[0].tci & htons(VLAN_PCP_MASK);
         ovs_be16 cfi = mask->vlans[0].tci & htons(VLAN_CFI);
@@ -1453,24 +1566,24 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             }
         } else if (mask->vlans[0].tci == htons(0xffff) &&
                    ntohs(key->vlans[0].tci) == 0) {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[0]");
+//            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[0]");
             /* exact && no vlan */
         } else {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[0]");
+//            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[0]");
             /* partial mask */
             return EOPNOTSUPP;
         }
     }
 
     if (mask->vlans[1].tpid && eth_type_vlan(key->vlans[1].tpid)) {
-        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tpid && eth_type_vlan(key->vlans[1].tpid)");
+//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tpid && eth_type_vlan(key->vlans[1].tpid)");
         flower.key.encap_eth_type[1] = flower.key.encap_eth_type[0];
         flower.mask.encap_eth_type[1] = flower.mask.encap_eth_type[0];
         flower.key.encap_eth_type[0] = key->vlans[1].tpid;
         flower.mask.encap_eth_type[0] = mask->vlans[1].tpid;
     }
     if (mask->vlans[1].tci) {
-        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tci");
+//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: mask->vlans[1].tci");
         ovs_be16 vid_mask = mask->vlans[1].tci & htons(VLAN_VID_MASK);
         ovs_be16 pcp_mask = mask->vlans[1].tci & htons(VLAN_PCP_MASK);
         ovs_be16 cfi = mask->vlans[1].tci & htons(VLAN_CFI);
@@ -1491,10 +1604,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             }
         } else if (mask->vlans[1].tci == htons(0xffff) &&
                    ntohs(key->vlans[1].tci) == 0) {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[1]");
+//            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: exact && no vlan[1]");
             /* exact && no vlan */
         } else {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[1]");
+//            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: partial mask[1]");
             /* partial mask */
             return EOPNOTSUPP;
         }
@@ -1724,8 +1837,15 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             switch (type) {
                 case OVS_KEY_ATTR_SET_FIELD: {
                     VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_SET_FIELD");
-                    const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
+                    const struct ovs_key_set_field *set_field_key = nl_attr_get(a);
+                    const struct ovs_key_set_field *set_field_mask= get_mask(a, struct ovs_key_set_field);
+//                    const size_t set_field_len = nl_attr_get_size(a);
 
+                    err = parse_put_flow_set_masked_action_pof(&flower, action, set_field_key, set_field_mask, true);
+                    if (err) {
+                        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: parse_put_flow_set_action error");
+                        return err;
+                    }
                 }
                 break;
                 case OVS_KEY_ATTR_ADD_FIELD: {

@@ -1844,6 +1844,7 @@ static void
 nl_msg_put_act_pedit(struct ofpbuf *request, struct tc_pedit *parm,
                      struct tc_pedit_key_ex *ex)
 {
+    VLOG_INFO("+++++++++++zq: nl_msg_put_act_pedit start");
     size_t ksize = sizeof *parm + parm->nkeys * sizeof(struct tc_pedit_key);
     size_t offset, offset_keys_ex, offset_key;
     int i;
@@ -1853,10 +1854,12 @@ nl_msg_put_act_pedit(struct ofpbuf *request, struct tc_pedit *parm,
     {
         parm->action = TC_ACT_PIPE;
 
+        VLOG_INFO("+++++++++++zq: nl_msg_put_act_pedit tc_pedit_key:%d",parm->keys[0].val);
         nl_msg_put_unspec(request, TCA_PEDIT_PARMS_EX, parm, ksize);
         offset_keys_ex = nl_msg_start_nested(request, TCA_PEDIT_KEYS_EX);
         for (i = 0; i < parm->nkeys; i++, ex++) {
             offset_key = nl_msg_start_nested(request, TCA_PEDIT_KEY_EX);
+            VLOG_INFO("+++++++++++zq: nl_msg_put_act_pedit TCA_PEDIT_KEY_EX_HTYPE:%d",ex->htype);
             nl_msg_put_u16(request, TCA_PEDIT_KEY_EX_HTYPE, ex->htype);
             nl_msg_put_u16(request, TCA_PEDIT_KEY_EX_CMD, ex->cmd);
             nl_msg_end_nested(request, offset_key);
@@ -1864,6 +1867,7 @@ nl_msg_put_act_pedit(struct ofpbuf *request, struct tc_pedit *parm,
         nl_msg_end_nested(request, offset_keys_ex);
     }
     nl_msg_end_nested(request, offset);
+    VLOG_INFO("+++++++++++zq: nl_msg_put_act_pedit end");
 }
 
 static void
@@ -2227,6 +2231,7 @@ calc_offsets(struct tc_flower *flower, struct flower_key_to_pedit *m,
              int *cur_offset, int *cnt, ovs_be32 *last_word_mask,
              ovs_be32 *first_word_mask, ovs_be32 **mask, ovs_be32 **data)
 {
+    VLOG_INFO("+++++++++++zq: calc_offsets start");
     int start_offset, max_offset, total_size;
     int diff, right_zero_bits, left_zero_bits;
     char *rewrite_key = (void *) &flower->rewrite.key;
@@ -2245,6 +2250,7 @@ calc_offsets(struct tc_flower *flower, struct flower_key_to_pedit *m,
     *first_word_mask = htonl(UINT32_MAX >> left_zero_bits);
     *data = (void *) (rewrite_key + m->flower_offset - diff);
     *mask = (void *) (rewrite_mask + m->flower_offset - diff);
+    VLOG_INFO("+++++++++++zq: calc_offsets end");
 }
 
 static inline int
@@ -2299,6 +2305,7 @@ static int
 nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
                                  struct tc_flower *flower)
 {
+    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits start");
     struct {
         struct tc_pedit sel;
         struct tc_pedit_key keys[MAX_PEDIT_OFFSETS];
@@ -2321,6 +2328,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
             continue;
         }
 
+        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits flower_pedit_map[i]=%d", i);
         calc_offsets(flower, m, &cur_offset, &cnt, &last_word_mask,
                      &first_word_mask, &mask, &data);
 
@@ -2365,6 +2373,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
         }
     }
     nl_msg_put_act_pedit(request, &sel.sel, sel.keys_ex);
+    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits end");
 
     return 0;
 }
@@ -2403,6 +2412,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
                     nl_msg_put_act_flags(request);
                     nl_msg_end_nested(request, act_offset);
                 }
+                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT end");
             }
             break;
             case TC_ACT_ENCAP: {
