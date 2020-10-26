@@ -1854,15 +1854,18 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
                     VLOG_INFO("++++++zq netdev_flow_put:  add_field_key_value[0]=:%d", add_field_key->value[0]);
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[1]);
-                    uint8_t in_port_int = add_field_key->in_port;
-                    VLOG_INFO("++++++zq in_port_int: %d", add_field_key->in_port);
-                    uint8_t out_port_int = add_field_key->out_port;
-                    VLOG_INFO("++++++zq out_port_int: %d", add_field_key->out_port);
-                    ovs_be16 int_value = (ovs_be16) (out_port_int << 8) | in_port_int;
-                    uint16_t int_type = (uint16_t)(add_field_key->value[1] << 8) | add_field_key->value[0];
-                    VLOG_INFO("++++++zq netdev_flow_put: int_type:0x%"PRIx16, int_type);
-                    VLOG_INFO("++++++zq netdev_flow_put: int_value:0x%"PRIx16, int_value);
-                    ovs_be32 mpls_lse = (ovs_be32)(int_value << 16) | int_type;
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[2]);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[3]);
+//                    uint8_t in_port_int = add_field_key->in_port;
+//                    VLOG_INFO("++++++zq in_port_int: %d", add_field_key->in_port);
+//                    uint8_t out_port_int = add_field_key->out_port;
+//                    VLOG_INFO("++++++zq out_port_int: %d", add_field_key->out_port);
+//                    ovs_be16 int_value = (ovs_be16) (out_port_int << 8) | in_port_int;
+                    uint16_t int_data_1 = (uint16_t)(add_field_key->value[1] << 8) | add_field_key->value[0];
+                    uint16_t int_data_2 = (uint16_t)(add_field_key->value[3] << 8) | add_field_key->value[2];
+                    VLOG_INFO("++++++zq netdev_flow_put: int_data_1:0x%"PRIx16, int_data_1);
+                    VLOG_INFO("++++++zq netdev_flow_put: int_data_2:0x%"PRIx16, int_data_2);
+                    ovs_be32 mpls_lse = (ovs_be32)(int_data_2 << 16) | int_data_1;
 
                     action->mpls.proto = 0x4788;
                     VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"PRIx16, action->mpls.proto);
