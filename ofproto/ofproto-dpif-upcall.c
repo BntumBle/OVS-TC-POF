@@ -219,6 +219,7 @@ struct upcall {
     uint16_t mru;                  /* If !0, Maximum receive unit of
                                       fragmented IP packet */
     uint64_t hash;
+    long long int ingress_time;
 
     enum upcall_type type;         /* Type of the upcall. */
     const struct nlattr *actions;  /* Flow actions in DPIF_UC_ACTION Upcalls. */
@@ -397,7 +398,7 @@ static int upcall_receive(struct upcall *, const struct dpif_backer *,
                           const struct dp_packet *packet, enum dpif_upcall_type,
                           const struct nlattr *userdata, const struct flow *,
                           const unsigned int mru,
-                          const ovs_u128 *ufid, const unsigned pmd_id);
+                          const ovs_u128 *ufid, const unsigned pmd_id, long long int ingress_time);
 static void upcall_uninit(struct upcall *);
 
 static void udpif_flow_rebalance(struct udpif *udpif);
@@ -692,7 +693,10 @@ udpif_get_memory_usage(struct udpif *udpif, struct simap *usage)
     }
 }
 
-/* Remove flows from a single datapath. */
+/* RemoveThis means that different cached datapath flows may have
+been computed based on a different flow table configurations, but each of the
+datapath flows is guaranteed to have been computed over a coherent view of the
+flow tables, as described above. flows from a single datapath. */
 void
 udpif_flush(struct udpif *udpif)
 {
@@ -788,6 +792,7 @@ recv_upcalls(struct handler *handler)
         struct flow *flow = &flows[n_upcalls];
         unsigned int mru = 0;
         uint64_t hash = 0;
+        long long int ingress_time = 0;
         int error;
 
         ofpbuf_use_stub(recv_buf, recv_stubs[n_upcalls],
@@ -811,11 +816,17 @@ recv_upcalls(struct handler *handler)
             hash = nl_attr_get_u64(dupcall->hash);
         }
 
+        /*zq*/
+        if (dupcall->ingress_time) {
+            ingress_time = nl_attr_get_u64(dupcall->ingress_time);
+            VLOG_INFO("+++++++++++zq recv_upcalls: has ingress_time: %lld", ingress_time);
+        }
+
         error = upcall_receive(upcall, udpif->backer, &dupcall->packet,
                                dupcall->type, dupcall->userdata, flow, mru,
-                               &dupcall->ufid, PMD_ID_NULL);
+                               &dupcall->ufid, PMD_ID_NULL, ingress_time);
         if (error) {
-            VLOG_INFO("+++++++++++zq upcall_cb: error upcall_receive");
+            VLOG_INFO("+++++++++++zq recv_upcalls: error upcall_receive");
             if (error == ENODEV) {
                 /* Received packet on datapath port for which we couldn't
                  * associate an ofproto.  This can happen if a port is removed
@@ -859,9 +870,9 @@ free_dupcall:
     }
 
     if (n_upcalls) {
-        VLOG_INFO("+++++++++zq recv_upcalls: before handle_upcalls");
+//        VLOG_INFO("+++++++++zq recv_upcalls: before handle_upcalls");
         handle_upcalls(handler->udpif, upcalls, n_upcalls);
-        VLOG_INFO("+++++++++zq recv_upcalls: after handle_upcalls");
+//        VLOG_INFO("+++++++++zq recv_upcalls: after handle_upcalls");
         for (i = 0; i < n_upcalls; i++) {
             dp_packet_uninit(&dupcalls[i].packet);
             ofpbuf_uninit(&recv_bufs[i]);
@@ -988,8 +999,10 @@ udpif_revalidator(void *arg)
                           duration);
             }
 
+            /* zq: control approximate revalidating period here.ofproto_max_idle: 1000ms, ofproto_max_revalidator:500ms */
             poll_timer_wait_until(start_time + MIN(ofproto_max_idle,
                                                    ofproto_max_revalidator));
+//            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 5));
             seq_wait(udpif->reval_seq, last_reval_seq);
             latch_wait(&udpif->exit_latch);
             latch_wait(&udpif->pause_latch);
@@ -1115,7 +1128,7 @@ upcall_receive(struct upcall *upcall, const struct dpif_backer *backer,
                const struct dp_packet *packet, enum dpif_upcall_type type,
                const struct nlattr *userdata, const struct flow *flow,
                const unsigned int mru,
-               const ovs_u128 *ufid, const unsigned pmd_id)
+               const ovs_u128 *ufid, const unsigned pmd_id, long long int ingress_time)
 {
     int error;
 
@@ -1158,6 +1171,7 @@ upcall_receive(struct upcall *upcall, const struct dpif_backer *backer,
     upcall->key = NULL;
     upcall->key_len = 0;
     upcall->mru = mru;
+    upcall->ingress_time = ingress_time;
 
     upcall->out_tun_key = NULL;
     upcall->actions = NULL;
@@ -1169,7 +1183,7 @@ static void
 upcall_xlate(struct udpif *udpif, struct upcall *upcall,
              struct ofpbuf *odp_actions, struct flow_wildcards *wc)
 {
-    VLOG_INFO("+++++++++++zq upcall_xlate start");
+//    VLOG_INFO("+++++++++++zq upcall_xlate start");
     struct dpif_flow_stats stats;
     enum xlate_error xerr;
     struct xlate_in xin;
@@ -1177,7 +1191,7 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
 
     stats.n_packets = 1;
     stats.n_bytes = dp_packet_size(upcall->packet);
-    stats.used = time_msec();
+    stats.used = time_wall_msec();//zq
     stats.tcp_flags = ntohs(upcall->flow->tcp_flags);
 
     xlate_in_init(&xin, upcall->ofproto,
@@ -1208,7 +1222,7 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
     upcall->reval_seq = seq_read(udpif->reval_seq);
 
     xerr = xlate_actions(&xin, &upcall->xout);
-    VLOG_INFO("+++++++++++zq upcall_xlate:xerr=%d", xerr);
+//    VLOG_INFO("+++++++++++zq upcall_xlate:xerr=%d", xerr);
 
     /* Translate again and log the ofproto trace for
      * these two error types. */
@@ -1320,7 +1334,7 @@ upcall_cb(const struct dp_packet *packet, const struct flow *flow, ovs_u128 *ufi
     atomic_read_relaxed(&enable_megaflows, &megaflow);
 
     error = upcall_receive(&upcall, udpif->backer, packet, type, userdata,
-                           flow, 0, ufid, pmd_id);
+                           flow, 0, ufid, pmd_id, 0);
     if (error) {
         return error;
     }
@@ -1424,9 +1438,9 @@ process_upcall(struct udpif *udpif, struct upcall *upcall,
     switch (upcall->type) {
     case MISS_UPCALL:
     case SLOW_PATH_UPCALL:
-        VLOG_INFO("zq: enter slow_path_upcall");
+//        VLOG_INFO("zq: enter slow_path_upcall");
         upcall_xlate(udpif, upcall, odp_actions, wc);
-        VLOG_INFO("zq: leave slow_path_upcall");
+//        VLOG_INFO("zq: leave slow_path_upcall");
         return 0;
 
     case SFLOW_UPCALL:
@@ -1576,7 +1590,7 @@ static void
 handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
                size_t n_upcalls)
 {
-    VLOG_INFO("+++++++++++zq:  handle_upcalls start");
+//    VLOG_INFO("+++++++++++zq:  handle_upcalls start");
     struct dpif_op *opsp[UPCALL_MAX_BATCH * 2];
     struct ukey_op ops[UPCALL_MAX_BATCH * 2];
     size_t n_ops, n_opsp, i;
@@ -1639,19 +1653,19 @@ handle_upcalls(struct udpif *udpif, struct upcall *upcalls,
         struct udpif_key *ukey = ops[i].ukey;
 
         if (ukey) { //zq note :run
-            VLOG_INFO("+++++++++++zq:  handle_upcalls: if(ukey) = 1");
+//            VLOG_INFO("+++++++++++zq:  handle_upcalls: if(ukey) = 1");
             ovs_mutex_lock(&ukey->mutex);
             if (ops[i].dop.error) {
-                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 1");
+//                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 1");
                 transition_ukey(ukey, UKEY_EVICTED);
             } else if (ukey->state < UKEY_OPERATIONAL) { //zq note :run
-                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 0");
+//                VLOG_INFO("+++++++++++zq:  handle_upcalls: if (ops[i].dop.error) = 0");
                 transition_ukey(ukey, UKEY_OPERATIONAL);
             }
             ovs_mutex_unlock(&ukey->mutex);
         }
     }
-    VLOG_INFO("+++++++++++zq:  handle_upcalls end");
+//    VLOG_INFO("+++++++++++zq:  handle_upcalls end");
 }
 
 static uint32_t
@@ -2207,6 +2221,7 @@ revalidate_ukey__(struct udpif *udpif, const struct udpif_key *ukey,
     netflow = NULL;
 
     if (xlate_ukey(udpif, ukey, tcp_flags, &ctx)) {
+        VLOG_INFO("++++++zq revalidate_ukey__: result = UKEY_DELETE, xlate_ukey error");
         goto exit;
     }
     xoutp = &ctx.xout;
@@ -2218,7 +2233,7 @@ revalidate_ukey__(struct udpif *udpif, const struct udpif_key *ukey,
     if (xoutp->slow) {
         struct ofproto_dpif *ofproto;
         ofp_port_t ofp_in_port;
-
+        VLOG_INFO("++++++zq revalidate_ukey__: compose_slow_path");
         ofproto = xlate_lookup_ofproto(udpif->backer, &ctx.flow, &ofp_in_port,
                                        NULL);
 
@@ -2236,6 +2251,7 @@ revalidate_ukey__(struct udpif *udpif, const struct udpif_key *ukey,
     if (odp_flow_key_to_mask(ukey->mask, ukey->mask_len, &dp_mask, &ctx.flow,
                              NULL)
         == ODP_FIT_ERROR) {
+        VLOG_INFO("++++++zq revalidate_ukey__: result = UKEY_DELETE, odp_flow_key_to_mask");
         goto exit;
     }
 
@@ -2245,6 +2261,7 @@ revalidate_ukey__(struct udpif *udpif, const struct udpif_key *ukey,
      * down.  Note that we do not know if the datapath has ignored any of the
      * wildcarded bits, so we may be overly conservative here. */
     if (flow_wildcards_has_extra(&dp_mask, ctx.wc)) {
+        VLOG_INFO("++++++zq revalidate_ukey__: result = UKEY_DELETE, odp_flow_key_to_mask, flow_wildcards_has_extra");
         goto exit;
     }
 
@@ -2307,8 +2324,11 @@ revalidate_ukey(struct udpif *udpif, struct udpif_key *ukey,
     push.n_bytes = (stats->n_bytes > ukey->stats.n_bytes
                     ? stats->n_bytes - ukey->stats.n_bytes
                     : 0);
+//    VLOG_INFO("++++++ zq revalidate_ukey: used(ms)=%lld, stats.n_packets=%ld, push.n_packets=%ld,, stats.n_bytes=%ld, push.n_bytes=%ld",
+//              push.used, stats->n_packets, push.n_packets, stats->n_bytes, push.n_bytes); /*zq:all is zero*/
 
     if (need_revalidate) {
+        VLOG_INFO("++++++++zq revalidate_ukey: need_revalidate");
         if (should_revalidate(udpif, push.n_packets, ukey->stats.used)) {
             if (!ukey->xcache) {
                 ukey->xcache = xlate_cache_new();
@@ -2317,6 +2337,7 @@ revalidate_ukey(struct udpif *udpif, struct udpif_key *ukey,
             }
             result = revalidate_ukey__(udpif, ukey, push.tcp_flags,
                                        odp_actions, recircs, ukey->xcache);
+            VLOG_INFO("++++++++zq revalidate_ukey 1111: result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);
         } /* else delete; too expensive to revalidate */
     } else if (!push.n_packets || ukey->xcache
                || !populate_xcache(udpif, ukey, push.tcp_flags)) {
@@ -2329,6 +2350,13 @@ revalidate_ukey(struct udpif *udpif, struct udpif_key *ukey,
         ukey->stats = *stats;
         ukey->reval_seq = reval_seq;
     }
+
+    /*zq
+    int packet_processed_threshold = 10;
+    if (stats->n_packets > packet_processed_threshold) {
+        VLOG_INFO("++++++zq revalidate_ukey: packet_processed:stats->n_packets=%ld", stats->n_packets);
+        result = UKEY_DELETE;
+    }*/
 
     return result;
 }
@@ -2714,6 +2742,9 @@ revalidate(struct revalidator *revalidator)
             if (kill_them_all || (used && used < now - max_idle)) {
                 result = UKEY_DELETE;
             } else {
+//                VLOG_INFO("++++++zq revalidate: result=revalidate_ukey, n_packets=%ld, n_bytes=%ld, used=%lld, now=%lld,"
+//                          "ukey->stats.n_packets=%ld, ukey->stats.n_bytes=%ld",
+//                          f->stats.n_packets, f->stats.n_bytes, f->stats.used, now, ukey->stats.n_packets, ukey->stats.n_bytes);
                 result = revalidate_ukey(udpif, ukey, &f->stats, &odp_actions,
                                          reval_seq, &recircs,
                                          f->attrs.offloaded);
@@ -2722,11 +2753,13 @@ revalidate(struct revalidator *revalidator)
 
             if (netdev_is_offload_rebalance_policy_enabled() &&
                 result != UKEY_DELETE) {
+                VLOG_INFO("++++++zq revalidate: netdev_is_offload_rebalance_policy_enabled() &&result != UKEY_DELETE)");
                 udpif_update_flow_pps(udpif, ukey, f);
             }
 
             if (result != UKEY_KEEP) {
                 /* Takes ownership of 'recircs'. */
+                VLOG_INFO("++++++tsf revalidate: reval_op_init, result=result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);
                 reval_op_init(&ops[n_ops++], result, udpif, ukey, &recircs,
                               &odp_actions);
             }

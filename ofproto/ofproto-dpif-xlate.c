@@ -3754,7 +3754,8 @@ xlate_commit_actions(struct xlate_ctx *ctx)
     ctx->xout->slow |= commit_odp_actions(&ctx->xin->flow, &ctx->base_flow,
                                           ctx->odp_actions, ctx->wc,
                                           use_masked, ctx->pending_encap,
-                                          ctx->pending_decap, ctx->encap_data);
+                                          ctx->pending_decap, ctx->encap_data,
+                                          ctx->xin->resubmit_stats->used);
     ctx->pending_encap = false;
     ctx->pending_decap = false;
     ofpbuf_delete(ctx->encap_data);
@@ -4182,9 +4183,9 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
 
     if (out_port != ODPP_NONE) {   //zq: run here
         /* Commit accumulated flow updates before output. */
-        VLOG_INFO("+++++++++++zq compose_output_action__: start xlate_commit_actions");
+//        VLOG_INFO("+++++++++++zq compose_output_action__: start xlate_commit_actions");
         xlate_commit_actions(ctx);
-        VLOG_INFO("+++++++++++zq compose_output_action__: finish xlate_commit_actions");
+//        VLOG_INFO("+++++++++++zq compose_output_action__: finish xlate_commit_actions");
 
         if (xr) {
             /* Recirculate the packet. */
@@ -5166,15 +5167,15 @@ xlate_output_action(struct xlate_ctx *ctx, ofp_port_t port,
                     bool is_last_action, bool truncate,
                     bool group_bucket_action)
 {
-    VLOG_INFO("zq: xlate_output_action start");
+//    VLOG_INFO("zq: xlate_output_action start");
     ofp_port_t prev_nf_output_iface = ctx->nf_output_iface;
 
     ctx->nf_output_iface = NF_OUT_DROP;
 
     switch (port) {  //zq notes: port = 1 go to default
     case OFPP_IN_PORT:
-        VLOG_INFO("zq: xlate_output_action: OFPP_IN_PORT, inport=%"PRIu32,
-                  ctx->xin->flow.in_port.ofp_port);
+//        VLOG_INFO("zq: xlate_output_action: OFPP_IN_PORT, inport=%"PRIu32,
+//                  ctx->xin->flow.in_port.ofp_port);
         compose_output_action(ctx, ctx->xin->flow.in_port.ofp_port, NULL,
                               is_last_action, truncate);
         break;
@@ -5211,8 +5212,8 @@ xlate_output_action(struct xlate_ctx *ctx, ofp_port_t port,
     case OFPP_LOCAL:
         VLOG_INFO("zq: xlate_output_action: OFPP_LOCAL");
     default:
-        VLOG_INFO("zq: xlate_output_action port:%d", port);
-        VLOG_INFO("zq: xlate_output_action flow.in_port.ofp_port:%d", ctx->xin->flow.in_port.ofp_port);
+//        VLOG_INFO("zq: xlate_output_action port:%d", port);
+//        VLOG_INFO("zq: xlate_output_action flow.in_port.ofp_port:%d", ctx->xin->flow.in_port.ofp_port);
         if (port != ctx->xin->flow.in_port.ofp_port) {
             compose_output_action(ctx, port, NULL, is_last_action, truncate);
         } else {
@@ -6758,7 +6759,7 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         case OFPACT_OUTPUT:
             VLOG_INFO("zq: pof_do_xlate_actions OFPACT_OUTPUT->type:%d, len:%d", a->type, a->len);
             flow->telemetry.out_port = ofpact_get_OUTPUT(a)->port;
-            VLOG_INFO("zq: pof_do_xlate_actions flow->telemetry.out_port:%d", flow->telemetry.out_port);
+//            VLOG_INFO("zq: pof_do_xlate_actions flow->telemetry.out_port:%d", flow->telemetry.out_port);
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,
                                 ofpact_get_OUTPUT(a)->max_len, true, last,
                                 false, group_bucket_action);
@@ -7407,7 +7408,8 @@ xlate_in_init(struct xlate_in *xin, struct ofproto_dpif *ofproto,
               const struct dp_packet *packet, struct flow_wildcards *wc,
               struct ofpbuf *odp_actions)
 {
-    VLOG_INFO("+++++++++++zq xlate_in_init start");
+//    VLOG_INFO("+++++++++++zq xlate_in_init
+//    start");
     xin->ofproto = ofproto;
     xin->tables_version = version;
     xin->flow = *flow;
@@ -7971,7 +7973,7 @@ xlate_actions(struct xlate_in *xin, struct xlate_out *xout)
                 OVS_NOT_REACHED();
             }
 
-            VLOG_INFO("++++++zq xlate_actions ofpacts_len=%d", ofpacts_len);
+//            VLOG_INFO("++++++zq xlate_actions ofpacts_len=%d", ofpacts_len);
             mirror_ingress_packet(&ctx);
             pof_do_xlate_actions(ofpacts, ofpacts_len, &ctx, true, false);
             if (ctx.error) {
@@ -7990,7 +7992,7 @@ xlate_actions(struct xlate_in *xin, struct xlate_out *xout)
             }
 
             if (!ctx.freezing) {  //*****zq notes: ctx.freezing=false, run here
-                VLOG_INFO("++++++tsf xlate_actions: xlate_action_set start");
+//                VLOG_INFO("++++++tsf xlate_actions: xlate_action_set start");
                 xlate_action_set(&ctx);
             }
             if (ctx.freezing) {

@@ -5966,8 +5966,8 @@ static void get_pof_set_field_key(const struct pof_flow *, struct ovs_key_set_fi
 static void get_pof_set_field_mask(const struct pof_flow *, struct ovs_key_set_field *, int);
 static void get_pof_modify_field_key(const struct pof_flow *, struct ovs_key_modify_field *, int);
 static void get_pof_modify_field_mask(const struct pof_flow *, struct ovs_key_modify_field *, int);
-static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int);
-static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int);
+static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int, long long int);
+static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int, long long int);
 static void get_pof_delete_field_key(const struct pof_flow *, struct ovs_key_delete_field *, int);
 static void get_pof_delete_field_mask(const struct pof_flow *, struct ovs_key_delete_field *, int);
 static void put_ethernet_key(const struct ovs_key_ethernet *, struct flow *);
@@ -7831,17 +7831,18 @@ static void
 commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
                             struct ofpbuf *odp_actions,
                             struct flow_wildcards *wc,
-                            bool use_masked, int index)
+                            bool use_masked, int index,
+                            long long int ingress_time)
 {
     struct ovs_key_add_field key, base, mask;
 
     struct pof_flow * pflow = flow;
     struct pof_flow * pbase = base_flow;
 
-    get_pof_add_field_key(pflow, &key, index);
-    get_pof_add_field_key(pbase, &base, index);
+    get_pof_add_field_key(pflow, &key, index, ingress_time);
+    get_pof_add_field_key(pbase, &base, index, ingress_time);
     use_masked = true;
-    get_pof_add_field_mask(pflow, &mask, index);
+    get_pof_add_field_mask(pflow, &mask, index, ingress_time);
 
     VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before pof_commit");
     if (pof_commit(OVS_KEY_ATTR_ADD_FIELD, use_masked,
@@ -7853,22 +7854,22 @@ commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
 }
 
 static void
-get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
+get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index, long long int ingress_time)
 {
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
     eth->offset = ntohs(flow->offset[index]);
-    VLOG_INFO("++++++zq get_add_field_key: eth->field_id=%d, eth->len=%d, eth->offset=%d",
-                    eth->field_id, eth->len, eth->offset);
+//    VLOG_INFO("++++++zq get_add_field_key: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+//                    eth->field_id, eth->len, eth->offset);
 
     /* tsf: if field_id equals 0xffff, then it's add INT fields, whose data comes from pof_flow->pof_metadata.
      *      otherwise, ovs should add static fields which are from controller.
      * */
     if (eth->field_id != 0xffff) {  // add static fields which come from controller zq: run here
-        VLOG_INFO("++++++zq get_add_pof_field_key: add static fields");
+//        VLOG_INFO("++++++zq get_add_pof_field_key: add static fields");
         for (int i = 0; i < eth->len; i++) {
             eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
-            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->value[%d]=%d", i, eth->value[i]);
+//            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->value[%d]=%d", i, eth->value[i]);
 //            eth->in_port = flow->telemetry.in_port;
 //            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->in_port=%d", eth->in_port);
 //            eth->out_port = flow->telemetry.out_port;
@@ -7880,19 +7881,20 @@ get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth
         eth->device_id = flow->telemetry.device_id;
         eth->in_port = flow->telemetry.in_port;
         eth->out_port = flow->telemetry.out_port;
-        VLOG_INFO("++++++zq get_add_field_key:  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
-                eth->value[0], eth->device_id, eth->in_port, eth->out_port);
+        eth->ingress_time = (uint32_t)ingress_time;
+        VLOG_INFO("++++++zq get_add_field_key:  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d, ingress_time=%u",
+                eth->value[0], eth->device_id, eth->in_port, eth->out_port, eth->ingress_time);
     }
 }
 
 static void
-get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
+get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index, long long int ingress_time)
 {
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
     eth->offset = ntohs(flow->offset[index]);
-    VLOG_INFO("++++++zq get_add_field_mask: eth->field_id=%d, eth->len=%d, eth->offset=%d",
-                    eth->field_id, eth->len, eth->offset);
+//    VLOG_INFO("++++++zq get_add_field_mask: eth->field_id=%d, eth->len=%d, eth->offset=%d",
+//                    eth->field_id, eth->len, eth->offset);
 
     /* tsf: if field_id equals 0xffff, then it's add INT fields, whose data comes from pof_flow->pof_metadata.
      *      otherwise, ovs should add static fields which are from controller.
@@ -7900,7 +7902,7 @@ get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *et
     if (eth->field_id != 0xffff) {  // add static fields which come from controller
         for (int i = 0; i < eth->len; i++) {
             eth->value[i] = flow->value[index][i];  // tsf: add 16 bytes most
-            VLOG_INFO("++++++zq get_pof_add_field_mask(from controller):  eth->value[%d]=%d", i, eth->value[i]);
+//            VLOG_INFO("++++++zq get_pof_add_field_mask(from controller):  eth->value[%d]=%d", i, eth->value[i]);
 //            eth->in_port = flow->telemetry.in_port;
 //            eth->out_port = flow->telemetry.out_port;
 //            VLOG_INFO("++++++zq get_pof_add_field_mask(from controller):  in_port=%d, out_port=%d", eth->in_port, eth->out_port);
@@ -7911,8 +7913,9 @@ get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *et
         eth->device_id = flow->telemetry.device_id;
         eth->in_port = flow->telemetry.in_port;
         eth->out_port = flow->telemetry.out_port;
-        VLOG_INFO("++++++zq get_pof_add_field_mask(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
-                  eth->value[0], eth->device_id, eth->in_port, eth->out_port);
+        eth->ingress_time = (uint32_t)ingress_time;
+        VLOG_INFO("++++++zq get_pof_add_field_mask(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d,ingress_time=%u",
+                  eth->value[0], eth->device_id, eth->in_port, eth->out_port, eth->ingress_time);
     }
 }
 
@@ -8034,7 +8037,7 @@ static void
 commit_pof_action(const struct flow *flow, struct flow *base_flow,
                   struct ofpbuf *odp_actions,
                   struct flow_wildcards *wc,
-                  bool use_masked) {
+                  bool use_masked, long long int ingress_time) {
     struct pof_flow *pflow = flow;
 
     uint8_t action_flag = 0;
@@ -8042,7 +8045,7 @@ commit_pof_action(const struct flow *flow, struct flow *base_flow,
 
     while (i < 8) { //8 is the num of action
         action_flag = pflow->flag[i];
-        VLOG_INFO("++++++zq commit_pof_action: action_flag[%d]=%d", i, action_flag);
+//        VLOG_INFO("++++++zq commit_pof_action: action_flag[%d]=%d", i, action_flag);
 
         switch (action_flag) {
 
@@ -8058,7 +8061,7 @@ commit_pof_action(const struct flow *flow, struct flow *base_flow,
 
             case OFPACT_ADD_FIELD:       // flag == 9
                 /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_add_field_action.");*/
-                commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
+                commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i, ingress_time);
                 break;
 
             case OFPACT_DELETE_FIELD:    // flag == 10
@@ -8072,7 +8075,7 @@ commit_pof_action(const struct flow *flow, struct flow *base_flow,
         /** tsf: skip unnecessary loops
          * */
         if (pflow->flag[i] == 0x00) {
-            VLOG_INFO("pof_flow flag == 0x00 skip unnecessary loops");
+//            VLOG_INFO("pof_flow flag == 0x00 skip unnecessary loops");
             return;
         }
 
@@ -8882,7 +8885,7 @@ enum slow_path_reason
 commit_odp_actions(const struct flow *flow, struct flow *base,
                    struct ofpbuf *odp_actions, struct flow_wildcards *wc,
                    bool use_masked, bool pending_encap, bool pending_decap,
-                   struct ofpbuf *encap_data)
+                   struct ofpbuf *encap_data, long long int ingress_time)
 {
     /* If you add a field that OpenFlow actions can change, and that is visible
      * to the datapath (including all data fields), then you should also add
@@ -8892,7 +8895,7 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
     enum slow_path_reason slow1, slow2;
     bool mpls_done = false;
 
-    commit_pof_action(flow, base, odp_actions, wc, use_masked);
+    commit_pof_action(flow, base, odp_actions, wc, use_masked, ingress_time);
 
 //    commit_encap_decap_action(flow, base, odp_actions, wc,
 //                              pending_encap, pending_decap, encap_data);

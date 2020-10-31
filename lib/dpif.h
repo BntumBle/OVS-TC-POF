@@ -818,6 +818,7 @@ struct dpif_upcall {
     struct nlattr *mru;         /* Maximum receive unit. */
     struct nlattr *hash;        /* Packet hash. */
     struct nlattr *cutlen;      /* Number of bytes shrink from the end. */
+    struct nlattr *ingress_time;        /*zq: ingress_time*/
 
     /* DPIF_UC_ACTION only. */
     struct nlattr *userdata;    /* Argument to OVS_ACTION_ATTR_USERSPACE. */

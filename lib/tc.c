@@ -1185,11 +1185,13 @@ static void
 nl_parse_tcf(const struct tcf_t *tm, struct tc_flower *flower)
 {
     flower->lastused = time_msec() - (tm->lastuse * 1000 / get_user_hz());
+    VLOG_INFO("zq: nl_parse_tcf flower->lastused=%.3fs, tm->lastuse=%.3fs", flower->lastused, tm->lastuse);
 }
 
 static int
 nl_parse_act_gact(struct nlattr *options, struct tc_flower *flower)
 {
+    VLOG_INFO("zq: nl_parse_act_gact start");
     struct nlattr *gact_attrs[ARRAY_SIZE(gact_policy)];
     const struct tc_gact *p;
     struct nlattr *gact_parms;
@@ -1649,6 +1651,8 @@ nl_parse_single_action(struct nlattr *action, struct tc_flower *flower)
     bs = nl_attr_get_unspec(stats_attrs[TCA_STATS_BASIC], sizeof *bs);
     put_32aligned_u64(&stats->n_packets, bs->packets);
     put_32aligned_u64(&stats->n_bytes, bs->bytes);
+    VLOG_INFO("zq: nl_parse_single_actions: stats->n_packets->lo=%"PRIu64", stats->n_bytes=%"PRIu64,
+            get_32aligned_u64(&stats->n_packets) , get_32aligned_u64(&stats->n_bytes));
 
     return 0;
 }

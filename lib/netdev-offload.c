@@ -237,6 +237,25 @@ netdev_flow_dump_next(struct netdev_flow_dump *dump, struct match *match,
            : false;
 }
 
+/*zq:get_stats_from_flower in parse_flow_put before netdev_flow_put
+int get_stats_from_flower(struct tcf_id *id, struct tc_flower *flower, struct offload_info *info, struct dpif_flow_put *put)
+{
+    int err;
+    err = get_ufid_tc_mapping(CONST_CAST(ovs_u128 *, put->ufid), id);
+    if (err) {
+    VLOG_INFO("+++++++++++zq: get_stats_from_flower: get_ufid_tc_mapping error");
+    }
+    err = tc_get_flower(id, flower);
+    if (err) {
+    VLOG_INFO("+++++++++++zq: get_stats_from_flower: tc_get_flower error");
+    }
+    info->bd_info.n_packets = get_32aligned_u64(&flower->stats.n_packets);
+    info->bd_info.n_bytes = get_32aligned_u64(&flower->stats.n_bytes);
+    info->bd_info.used =  time_msec();
+    VLOG_INFO("zq: parse_flow_put: bd_info.n_packets=%"PRIu64", bd_info.n_bytes=%"PRIu64",info.bd_info.used=%"PRIu64
+            , info->bd_info.n_packets , info->bd_info.n_bytes, info->bd_info.used);
+}*/
+
 int
 netdev_flow_put(struct netdev *netdev, struct match *match,
                 struct nlattr *actions, size_t act_len,

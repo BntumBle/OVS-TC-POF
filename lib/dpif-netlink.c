@@ -2051,7 +2051,7 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
         return EOPNOTSUPP;
     }
 
-    VLOG_INFO("+++++++++++zq: parse_flow_put :put->key_type=%d ,put->key_len=%d, put->mask_type=%d, put->mask_len=%d",put->key->nla_type,put->key_len,put->mask->nla_type,put->mask_len);
+//    VLOG_INFO("+++++++++++zq: parse_flow_put :put->key_type=%d ,put->key_len=%d, put->mask_type=%d, put->mask_len=%d",put->key->nla_type,put->key_len,put->mask->nla_type,put->mask_len);
     err = parse_key_and_mask_to_match(put->key, put->key_len, put->mask,
                                       put->mask_len, &match);
     if (err) {
@@ -2067,13 +2067,13 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
     /* Get tunnel dst port */
     NL_ATTR_FOR_EACH(nla, left, put->actions, put->actions_len) {
         if (nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT) {
-            VLOG_INFO("+++++++++++zq: parse_flow_put :nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT");
+//            VLOG_INFO("+++++++++++zq: parse_flow_put :nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT");
             const struct netdev_tunnel_config *tnl_cfg;
             struct netdev *outdev;
             odp_port_t out_port;
 
             out_port = nl_attr_get_odp_port(nla);
-            VLOG_INFO("+++++++++++zq: parse_flow_put :out_port=%u",out_port);
+//            VLOG_INFO("+++++++++++zq: parse_flow_put :out_port=%u",out_port);
             outdev = netdev_ports_get(out_port, dpif_class);
             if (!outdev) {
                 VLOG_INFO("+++++++++++zq: parse_flow_put :!outdev");
@@ -2098,6 +2098,18 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
     info.tunnel_csum_on = csum_on;
     info.recirc_id_shared_with_tc = (dpif->user_features
                                      & OVS_DP_F_TC_RECIRC_SHARING);
+
+    /*zq:get the stats from flower
+    struct tcf_id id;
+    struct tc_flower flower;
+
+    err = get_stats_from_flower(&id, &flower, &info, put);
+
+    if(err){
+        VLOG_INFO("+++++++++++zq: get_stats_from_flower error");
+    }*/
+
+
     VLOG_INFO("+++++++++++zq: parse_flow_put: before netdev_flow_put");
     err = netdev_flow_put(dev, &match,
                           CONST_CAST(struct nlattr *, put->actions),
@@ -2178,10 +2190,13 @@ try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
     /*VLOG_INFO("+++++++++++zq: try_send_to_netdev start");*/
     int err = EOPNOTSUPP;
 
+
     switch (op->type) {
     case DPIF_OP_FLOW_PUT: {  //zq note: run
         VLOG_INFO("+++++++++++zq: try_send_to_netdev : DPIF_OP_FLOW_PUT");
         struct dpif_flow_put *put = &op->flow_put;
+//        VLOG_INFO("+++++++++++zq: try_send_to_netdev: stats->n_packets=%ld, stats->n_bytes=%ld"
+//                  "stats->used=%lld", put->stats->n_packets, put->stats->n_bytes, put->stats->used); //aborted
 
         if (!put->ufid) {
             break;

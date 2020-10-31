@@ -1341,7 +1341,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
     }
 
     while (n_ops > 0) {
-        VLOG_INFO("+++++++++++zq dpif_operate: n_ops > 0");
+//        VLOG_INFO("+++++++++++zq dpif_operate: n_ops > 0");
         size_t chunk;
 
         /* Count 'chunk', the number of ops that can be executed without
@@ -1358,7 +1358,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
         }
 
         if (chunk) { // zq: run
-            VLOG_INFO("+++++++++++zq dpif_operate: chunk = 1");
+//            VLOG_INFO("+++++++++++zq dpif_operate: chunk = 1");
             /* Execute a chunk full of ops that the dpif provider can
              * handle itself, without help. */
             size_t i;

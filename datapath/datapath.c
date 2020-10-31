@@ -62,6 +62,7 @@
 #include "gso.h"
 #include "vport-internal_dev.h"
 #include "vport-netdev.h"
+#include "timeval.h"
 
 unsigned int ovs_net_id __read_mostly;
 
@@ -242,6 +243,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	u32 n_mask_hit;
 
 	stats = this_cpu_ptr(dp->stats_percpu);
+//    long long now = time_wall_usec(); //zq: current time
 
 	/* Look up flow. */
 
@@ -252,16 +254,17 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	if (flag) {
 		struct dp_upcall_info upcall;
 		int error;
-        printk(KERN_INFO "++++++zq  ovs_dp_process_packet:flag = 1, upcall\n");
+        pr_info("++++++zq  ovs_dp_process_packet:flag = 1, upcall\n");
 
 		memset(&upcall, 0, sizeof(upcall));
 		upcall.cmd = OVS_PACKET_CMD_MISS;
 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
 		upcall.mru = OVS_CB(skb)->mru;
+		upcall.now = time_wall_usec(); //zq: current time
 		error = ovs_dp_upcall(dp, skb, key, &upcall, 0);
 		if (unlikely(error))
 		{
-            printk(KERN_INFO "++++++zq  ovs_dp_process_packet:ovs_dp_upcall error\n");
+            pr_info("++++++zq  ovs_dp_process_packet:ovs_dp_upcall error\n");
 			kfree_skb(skb);
 		}
 		else
@@ -298,10 +301,10 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	if (!skb_is_gso(skb)){
-        printk(KERN_INFO "++++++zq ovs_dp_upcall: queue_userspace_packet start\n");
+        pr_info("++++++zq ovs_dp_upcall: queue_userspace_packet start\n");
 		err = queue_userspace_packet(dp, skb, key, upcall_info, cutlen);}
 	else{
-        printk(KERN_INFO "++++++zq ovs_dp_upcall: queue_userspace_packet start\n");
+        pr_info("++++++zq ovs_dp_upcall: queue_gso_packets start\n");
 		err = queue_gso_packets(dp, skb, key, upcall_info, cutlen);}
 	if (err)
 		goto err;
@@ -309,7 +312,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
 	return 0;
 
 err:
-    printk(KERN_INFO "++++++zq ovs_dp_upcall: error\n");
+    pr_info("++++++zq ovs_dp_upcall: error\n");
 	stats = this_cpu_ptr(dp->stats_percpu);
 
 	u64_stats_update_begin(&stats->syncp);
@@ -475,9 +478,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 		goto out;
 	}
 	upcall->dp_ifindex = dp_ifindex;
-    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key start\n");
+//    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key start\n");
 	err = ovs_nla_put_key(key, key, OVS_PACKET_ATTR_KEY, false, user_skb);
-    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key end\n");
+//    printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_key end\n");
 	BUG_ON(err);
 
 	if (upcall_info->userdata)
@@ -500,7 +503,6 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	if (upcall_info->actions_len) {
-        printk(KERN_INFO "++++++zq queue_userspace_packet: ovs_nla_put_actions start\n");
 		nla = nla_nest_start_noflag(user_skb, OVS_PACKET_ATTR_ACTIONS);
 		if (!nla) {
 			err = -EMSGSIZE;
@@ -514,6 +516,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 		else
 			nla_nest_cancel(user_skb, nla);
 	}
+
+	/*zq: add OVS_PACKET_ATTR_INGRESS_TIME*/
+    if (upcall_info->now) {
+        pr_info("++++++zq queue_userspace_packet: ovs_nla_put_ingress_time start\n");
+        if (nla_put_u64_64bit(user_skb, OVS_PACKET_ATTR_INGRESS_TIME,
+                        upcall_info->now)) {
+            err = -ENOBUFS;
+            pr_info("++++++zq queue_userspace_packet: ovs_nla_put_ingress_time error\n");
+            goto out;
+        }
+        pad_packet(dp, user_skb);
+    }
 
 	/* Add OVS_PACKET_ATTR_MRU */
 	if (upcall_info->mru) {

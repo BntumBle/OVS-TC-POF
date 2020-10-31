@@ -4240,13 +4240,13 @@ rule_dpif_credit_stats(struct rule_dpif *rule,
         ovs_mutex_lock(&rule->new_rule->stats_mutex);
         rule_dpif_credit_stats__(rule->new_rule, stats, rule->forward_counts,
                                  offloaded);
-        VLOG_INFO("+++++++zq rule_dpif_credit_stats(after): new_rule->stats.n_packets=%d, new_rule->stats.n_bytes=%d",
-        		rule->stats.n_packets, rule->stats.n_bytes);
+        /*VLOG_INFO("+++++++zq rule_dpif_credit_stats(new rule): new_rule->stats.n_packets=%ld, new_rule->stats.n_bytes=%ld",
+        		rule->stats.n_packets, rule->stats.n_bytes);*/
         ovs_mutex_unlock(&rule->new_rule->stats_mutex);
     } else {
         rule_dpif_credit_stats__(rule, stats, true, offloaded);
-        VLOG_INFO("+++++++zq rule_dpif_credit_stats(after): rule->stats.n_packets=%d, rule->stats.n_bytes=%d",
-        		rule->stats.n_packets, rule->stats.n_bytes);
+        /*VLOG_INFO("+++++++zq rule_dpif_credit_stats(rule): rule->stats.n_packets=%ld, rule->stats.n_bytes=%ld",
+        		rule->stats.n_packets, rule->stats.n_bytes);*/
     }
     ovs_mutex_unlock(&rule->stats_mutex);
 }

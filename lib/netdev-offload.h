@@ -22,6 +22,8 @@
 #include "openvswitch/types.h"
 #include "packets.h"
 #include "flow.h"
+#include "tc.h"
+#include "dpif.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -60,6 +62,14 @@ struct netdev_flow_dump {
     struct nl_dump *nl_dump;
 };
 
+/* zq: to calculate bandwidth. */
+struct bandwidth_info {
+    bool change;             /* If true, change the bandwidth information */
+    uint64_t used;          /* The time that comp_latch value changes. */
+    uint64_t n_packets;
+    uint64_t n_bytes;
+};
+
 /* Flow offloading. */
 struct offload_info {
     const struct dpif_class *dpif_class;
@@ -74,6 +84,7 @@ struct offload_info {
      * it will be in the pkt meta data.
      */
     uint32_t flow_mark;
+    struct bandwidth_info bd_info;
 };
 
 int netdev_flow_flush(struct netdev *);
@@ -83,6 +94,7 @@ bool netdev_flow_dump_next(struct netdev_flow_dump *, struct match *,
                           struct nlattr **actions, struct dpif_flow_stats *,
                           struct dpif_flow_attrs *, ovs_u128 *ufid,
                           struct ofpbuf *rbuffer, struct ofpbuf *wbuffer);
+/*int get_stats_from_flower(struct tcf_id *, struct tc_flower *, struct offload_info *, struct dpif_flow_put *);*/
 int netdev_flow_put(struct netdev *, struct match *, struct nlattr *actions,
                     size_t actions_len, const ovs_u128 *,
                     struct offload_info *, struct dpif_flow_stats *);
@@ -121,6 +133,7 @@ int netdev_ports_flow_get(const struct dpif_class *, struct match *match,
                           struct dpif_flow_stats *stats,
                           struct dpif_flow_attrs *attrs,
                           struct ofpbuf *buf);
+/*static int get_ufid_tc_mapping(const ovs_u128 *ufid, struct tcf_id *id);*/
 
 #ifdef  __cplusplus
 }

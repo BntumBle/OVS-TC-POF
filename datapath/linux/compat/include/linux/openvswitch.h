@@ -214,7 +214,8 @@ enum ovs_packet_attr {
 	OVS_PACKET_ATTR_MRU,	    /* Maximum received IP fragment size. */
 	OVS_PACKET_ATTR_LEN,		/* Packet size before truncation. */
 	OVS_PACKET_ATTR_HASH,		/* Packet hash. */
-	__OVS_PACKET_ATTR_MAX
+	__OVS_PACKET_ATTR_MAX,
+    OVS_PACKET_ATTR_INGRESS_TIME /*zq:Ingress time*/
 };
 
 #define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
