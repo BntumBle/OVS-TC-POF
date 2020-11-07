@@ -1185,13 +1185,13 @@ static void
 nl_parse_tcf(const struct tcf_t *tm, struct tc_flower *flower)
 {
     flower->lastused = time_msec() - (tm->lastuse * 1000 / get_user_hz());
-    VLOG_INFO("zq: nl_parse_tcf flower->lastused=%.3fs, tm->lastuse=%.3fs", flower->lastused, tm->lastuse);
+//    VLOG_INFO("zq: nl_parse_tcf flower->lastused=%.3fs, tm->lastuse=%.3fs", flower->lastused, tm->lastuse);
 }
 
 static int
 nl_parse_act_gact(struct nlattr *options, struct tc_flower *flower)
 {
-    VLOG_INFO("zq: nl_parse_act_gact start");
+    /*VLOG_INFO("zq: nl_parse_act_gact start");*/
     struct nlattr *gact_attrs[ARRAY_SIZE(gact_policy)];
     const struct tc_gact *p;
     struct nlattr *gact_parms;
@@ -1651,8 +1651,8 @@ nl_parse_single_action(struct nlattr *action, struct tc_flower *flower)
     bs = nl_attr_get_unspec(stats_attrs[TCA_STATS_BASIC], sizeof *bs);
     put_32aligned_u64(&stats->n_packets, bs->packets);
     put_32aligned_u64(&stats->n_bytes, bs->bytes);
-    VLOG_INFO("zq: nl_parse_single_actions: stats->n_packets->lo=%"PRIu64", stats->n_bytes=%"PRIu64,
-            get_32aligned_u64(&stats->n_packets) , get_32aligned_u64(&stats->n_bytes));
+//    VLOG_INFO("zq: nl_parse_single_actions: stats->n_packets->lo=%"PRIu64", stats->n_bytes=%"PRIu64,
+//            get_32aligned_u64(&stats->n_packets) , get_32aligned_u64(&stats->n_bytes));
 
     return 0;
 }
@@ -2664,7 +2664,7 @@ nl_msg_put_flower_tunnel(struct ofpbuf *request, struct tc_flower *flower)
 static int
 nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
 {
-    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options start");
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options start");*/
     uint16_t host_eth_type = ntohs(flower->key.eth_type);
     bool is_vlan = eth_type_vlan(flower->key.eth_type);
     bool is_qinq = is_vlan && eth_type_vlan(flower->key.encap_eth_type[0]);
@@ -2799,7 +2799,7 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
 int
 tc_replace_flower(struct tcf_id *id, struct tc_flower *flower)
 {
-    VLOG_INFO("+++++++++++zq: tc_replace_flower start");
+    /*VLOG_INFO("+++++++++++zq: tc_replace_flower start");*/
     struct ofpbuf request;
     struct ofpbuf *reply;
     int error = 0;
@@ -2812,9 +2812,9 @@ tc_replace_flower(struct tcf_id *id, struct tc_flower *flower)
     nl_msg_put_string(&request, TCA_KIND, "flower");
     basic_offset = nl_msg_start_nested(&request, TCA_OPTIONS);
     {
-        VLOG_INFO("+++++++++++zq: tc_replace_flower: before nl_msg_put_flower_options");
+        /*VLOG_INFO("+++++++++++zq: tc_replace_flower: before nl_msg_put_flower_options");*/
         error = nl_msg_put_flower_options(&request, flower);
-        VLOG_INFO("+++++++++++zq: tc_replace_flower: after nl_msg_put_flower_options");
+        /*VLOG_INFO("+++++++++++zq: tc_replace_flower: after nl_msg_put_flower_options");*/
         if (error) { //not run
             VLOG_INFO("+++++++++++zq: tc_replace_flower: nl_msg_put_flower_options error");
             ofpbuf_uninit(&request);

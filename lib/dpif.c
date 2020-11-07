@@ -1329,7 +1329,7 @@ void
 dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
              enum dpif_offload_type offload_type)
 {
-    VLOG_INFO("+++++++++++zq:  dpif_operate start");
+//    VLOG_INFO("+++++++++++zq:  dpif_operate start");
     if (offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()) {  //zq note: not run
         VLOG_INFO("+++++++++++zq dpif_operate: offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()");
         size_t i;
@@ -1371,7 +1371,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
 
                 switch (op->type) {
                 case DPIF_OP_FLOW_PUT: {
-                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_PUT");
+//                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_PUT");
                     struct dpif_flow_put *put = &op->flow_put;
 
                     COVERAGE_INC(dpif_flow_put);
@@ -1431,7 +1431,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
             n_ops--;
         }
     }
-    VLOG_INFO("+++++++++++zq:  dpif_operate end");
+//    VLOG_INFO("+++++++++++zq:  dpif_operate end");
 }
 
 /* Returns a string that represents 'type', for use in log messages. */

@@ -2034,7 +2034,7 @@ parse_flow_get(struct dpif_netlink *dpif, struct dpif_flow_get *get)
 static int
 parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
 {
-    VLOG_INFO("+++++++++++zq: parse_flow_put start");
+//    VLOG_INFO("+++++++++++zq: parse_flow_put start");
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
     const struct dpif_class *dpif_class = dpif->dpif.dpif_class;
     struct match match;
@@ -2110,13 +2110,13 @@ parse_flow_put(struct dpif_netlink *dpif, struct dpif_flow_put *put)
     }*/
 
 
-    VLOG_INFO("+++++++++++zq: parse_flow_put: before netdev_flow_put");
+//    VLOG_INFO("+++++++++++zq: parse_flow_put: before netdev_flow_put");
     err = netdev_flow_put(dev, &match,
                           CONST_CAST(struct nlattr *, put->actions),
                           put->actions_len,
                           CONST_CAST(ovs_u128 *, put->ufid),
                           &info, put->stats);
-    VLOG_INFO("+++++++++++zq: parse_flow_put: after netdev_flow_put");
+//    VLOG_INFO("+++++++++++zq: parse_flow_put: after netdev_flow_put");
 
     if (!err) {
         if (put->flags & DPIF_FP_MODIFY) {
@@ -2193,7 +2193,7 @@ try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
 
     switch (op->type) {
     case DPIF_OP_FLOW_PUT: {  //zq note: run
-        VLOG_INFO("+++++++++++zq: try_send_to_netdev : DPIF_OP_FLOW_PUT");
+//        VLOG_INFO("+++++++++++zq: try_send_to_netdev : DPIF_OP_FLOW_PUT");
         struct dpif_flow_put *put = &op->flow_put;
 //        VLOG_INFO("+++++++++++zq: try_send_to_netdev: stats->n_packets=%ld, stats->n_bytes=%ld"
 //                  "stats->used=%lld", put->stats->n_packets, put->stats->n_bytes, put->stats->used); //aborted
@@ -2201,9 +2201,9 @@ try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
         if (!put->ufid) {
             break;
         }
-        VLOG_INFO("+++++++++++zq: try_send_to_netdev : before parse_flow_put");
+//        VLOG_INFO("+++++++++++zq: try_send_to_netdev : before parse_flow_put");
         err = parse_flow_put(dpif, put);
-        VLOG_INFO("+++++++++++zq: try_send_to_netdev : after parse_flow_put");
+//        VLOG_INFO("+++++++++++zq: try_send_to_netdev : after parse_flow_put");
         log_flow_put_message(&dpif->dpif, &this_module, put, 0);
         break;
     }
@@ -2269,7 +2269,7 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
     }
 
     if (offload_type != DPIF_OFFLOAD_NEVER && netdev_is_flow_api_enabled()) {
-        VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: offload api enabled");
+        /*VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: offload api enabled");*/
         while (n_ops > 0) {
             count = 0;
 

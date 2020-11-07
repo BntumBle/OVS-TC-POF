@@ -62,13 +62,6 @@ struct netdev_flow_dump {
     struct nl_dump *nl_dump;
 };
 
-/* zq: to calculate bandwidth. */
-struct bandwidth_info {
-    bool change;             /* If true, change the bandwidth information */
-    uint64_t used;          /* The time that comp_latch value changes. */
-    uint64_t n_packets;
-    uint64_t n_bytes;
-};
 
 /* Flow offloading. */
 struct offload_info {
@@ -84,7 +77,6 @@ struct offload_info {
      * it will be in the pkt meta data.
      */
     uint32_t flow_mark;
-    struct bandwidth_info bd_info;
 };
 
 int netdev_flow_flush(struct netdev *);

@@ -6757,7 +6757,7 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
 
         switch (a->type) {
         case OFPACT_OUTPUT:
-            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_OUTPUT->type:%d, len:%d", a->type, a->len);
+            /*VLOG_INFO("zq: pof_do_xlate_actions OFPACT_OUTPUT->type:%d, len:%d", a->type, a->len);*/
             flow->telemetry.out_port = ofpact_get_OUTPUT(a)->port;
 //            VLOG_INFO("zq: pof_do_xlate_actions flow->telemetry.out_port:%d", flow->telemetry.out_port);
             xlate_output_action(ctx, ofpact_get_OUTPUT(a)->port,

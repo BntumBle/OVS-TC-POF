@@ -919,8 +919,8 @@ netdev_tc_flow_dump_next(struct netdev_flow_dump *dump,
         match->wc.masks.in_port.odp_port = u32_to_odp(UINT32_MAX);
         match->flow.in_port.odp_port = dump->port;
         match_set_recirc_id(match, id.chain);
-        VLOG_INFO("zq: netdev_tc_flow_dump_next: stats->n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", stats->used=%.3f"
-                          , stats->n_packets , stats->n_bytes, (time_msec() - stats->used)/1000.0);
+        /*VLOG_INFO("zq: netdev_tc_flow_dump_next: stats->n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", stats->used=%.3f"
+                          , stats->n_packets , stats->n_bytes, (time_msec() - stats->used)/1000.0);*/
         return true;
     }
 
@@ -1466,7 +1466,7 @@ flower_match_to_tun_opt(struct tc_flower *flower, const struct flow_tnl *tnl,
     flower->mask.tunnel.metadata.present.len = tnl->metadata.present.len;
 }
 /*zq:get_stats_from_flower in parse_flow_put before netdev_flow_put*/
-int get_stats_from_flower(const ovs_u128 *ufid, struct offload_info *info)
+/*int get_stats_from_flower(const ovs_u128 *ufid, struct offload_info *info)
 {
     struct tcf_id id;
     struct tc_flower flower;
@@ -1489,16 +1489,17 @@ int get_stats_from_flower(const ovs_u128 *ufid, struct offload_info *info)
 
 uint64_t last_n_packets = 0;      // zq: last flow statistics
 uint64_t last_n_bytes = 0;
-uint64_t last_time = 0;
+uint64_t last_time = 0;*/
 
 #define get_mask(a, type) ((const type *)(const void *)(a + 1) + 1)
+float bandwidth = 0.0;
 static int
 netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    struct nlattr *actions, size_t actions_len,
                    const ovs_u128 *ufid, struct offload_info *info,
                    struct dpif_flow_stats *stats)
 {
-    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start");
+    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start: bandwidth = %f",bandwidth);
 //    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: stats->n_packets=%ld, stats->n_bytes=%ld"
 //              "stats->used=%lld", stats->n_packets, stats->n_bytes, stats->used); //stats=NULL, aborted
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
@@ -1518,9 +1519,9 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     int prio = 0;
     int ifindex;
     int err;
-    uint64_t packets_count = 0;
+    /*uint64_t packets_count = 0;
     uint64_t bytes_count= 0;
-    uint64_t delta_times = 0;
+    uint64_t delta_times = 0;*/
 
     /*zq:get the stats from flower*/
 
@@ -1530,7 +1531,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
         VLOG_INFO("+++++++++++zq: get_stats_from_flower error");
     }*/
 
-    VLOG_INFO("zq: netdev_tc_flow_put: bd_info.n_packets=%"PRIu64", bd_info.n_bytes=%"PRIu64",info.bd_info.used=%"PRIu64
+    /*VLOG_INFO("zq: netdev_tc_flow_put: bd_info.n_packets=%"PRIu64", bd_info.n_bytes=%"PRIu64",info.bd_info.used=%"PRIu64
     , info->bd_info.n_packets , info->bd_info.n_bytes, info->bd_info.used);
     VLOG_INFO("zq: netdev_tc_flow_put(before): last_n_packets=%"PRIu64", last_n_bytes=%"PRIu64",last_time=%"PRIu64
     , last_n_packets , last_n_bytes, last_time);
@@ -1545,7 +1546,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     VLOG_INFO("zq: netdev_tc_flow_put(after): last_n_packets=%"PRIu64", last_n_bytes=%"PRIu64",last_time=%"PRIu64
     , last_n_packets , last_n_bytes, last_time);
     VLOG_INFO("zq: netdev_tc_flow_put(after): packets_count=%"PRIu64", bytes_count=%"PRIu64",delta_times=%"PRIu64
-    , packets_count , bytes_count, delta_times);
+    , packets_count , bytes_count, delta_times);*/
 
     ifindex = netdev_get_ifindex(netdev);
     if (ifindex < 0) {
@@ -1938,7 +1939,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                                           PRIx16, action->mpls.bos);
                         action->type = TC_ACT_MPLS_PUSH;
                         flower.action_count++;
-                    } else {
+                    } else { // 'add_int_field' action, fields come from controller
                         uint32_t device_id = ntohl(add_field_key->device_id);
                         uint8_t in_port = add_field_key->in_port;
                         uint8_t out_port = add_field_key->out_port;
@@ -1989,7 +1990,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             action->type = TC_ACT_MPLS_PUSH;
                             flower.action_count++;
                         }
-                        if (mapInfo & (UINT8_C(1) << 3)) { // zq: hop latency, 4B
+                        /*if (mapInfo & (UINT8_C(1) << 3)) { // zq: hop latency, 4B
                             uint32_t egress_time = (uint32_t) time_wall_msec();
                             uint32_t diff_time = ntohl(egress_time - ingress_time);
                             ovs_be32 mpls_lse = (ovs_be32) diff_time;
@@ -2012,11 +2013,9 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                                               PRIx16, action->mpls.bos);
                             action->type = TC_ACT_MPLS_PUSH;
                             flower.action_count++;
-                        }
-                        if (mapInfo & (UINT8_C(1) << 4)) { // zq: bandwidth, 4B
-                            uint32_t egress_time = (uint32_t) time_wall_msec();
-                            uint32_t diff_time = ntohl(egress_time - ingress_time);
-                            ovs_be32 mpls_lse = (ovs_be32) diff_time;
+                        }*/
+                        if (mapInfo & (UINT8_C(1) << 3)) { // zq: bandwidth, 4B
+                            ovs_be32 mpls_lse = (ovs_be32) bandwidth;
                             VLOG_INFO("++++++zq netdev_flow_put: hop latency:0x%"
                                               PRIx32, mpls_lse);
                             action->mpls.proto = 0x4788;
@@ -2139,10 +2138,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     if (!err) {
 //        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: stats->n_packets=%ld, stats->n_bytes=%ld"
 //                  "stats->used=%lld", stats->n_packets, stats->n_bytes, stats->used);
-        if (stats) {
+        /*if (stats) {
             VLOG_INFO("+++++++++++zq: stats=1");
             memset(stats, 0, sizeof *stats);
-        }
+        }*/
         add_ufid_tc_mapping(netdev, ufid, &id);
     }
 
