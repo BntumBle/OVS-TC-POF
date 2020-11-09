@@ -3754,8 +3754,7 @@ xlate_commit_actions(struct xlate_ctx *ctx)
     ctx->xout->slow |= commit_odp_actions(&ctx->xin->flow, &ctx->base_flow,
                                           ctx->odp_actions, ctx->wc,
                                           use_masked, ctx->pending_encap,
-                                          ctx->pending_decap, ctx->encap_data,
-                                          ctx->xin->resubmit_stats->used);
+                                          ctx->pending_decap, ctx->encap_data);
     ctx->pending_encap = false;
     ctx->pending_decap = false;
     ofpbuf_delete(ctx->encap_data);
@@ -6812,7 +6811,7 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
         case OFPACT_ADD_FIELD: {
-            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);
+            /*VLOG_INFO("zq: pof_do_xlate_actions OFPACT_ADD_FIELD->type:%d, len:%d", a->type, a->len);*/
             add_field = ofpact_get_ADD_FIELD(a);
 
             flow->field_id[action_num] = htons(add_field->tag_id);

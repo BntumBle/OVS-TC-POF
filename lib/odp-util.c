@@ -5966,8 +5966,8 @@ static void get_pof_set_field_key(const struct pof_flow *, struct ovs_key_set_fi
 static void get_pof_set_field_mask(const struct pof_flow *, struct ovs_key_set_field *, int);
 static void get_pof_modify_field_key(const struct pof_flow *, struct ovs_key_modify_field *, int);
 static void get_pof_modify_field_mask(const struct pof_flow *, struct ovs_key_modify_field *, int);
-static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int, long long int);
-static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int, long long int);
+static void get_pof_add_field_key(const struct pof_flow *, struct ovs_key_add_field *, int);
+static void get_pof_add_field_mask(const struct pof_flow *, struct ovs_key_add_field *, int);
 static void get_pof_delete_field_key(const struct pof_flow *, struct ovs_key_delete_field *, int);
 static void get_pof_delete_field_mask(const struct pof_flow *, struct ovs_key_delete_field *, int);
 static void put_ethernet_key(const struct ovs_key_ethernet *, struct flow *);
@@ -7538,7 +7538,7 @@ commit_masked_set_action(struct ofpbuf *odp_actions,
                          enum ovs_key_attr key_type,
                          const void *key_, const void *mask_, size_t key_size)
 {
-    VLOG_INFO("++++++zq commit_masked_set_action start");
+    /*VLOG_INFO("++++++zq commit_masked_set_action start");*/
     size_t offset = nl_msg_start_nested(odp_actions,
                                         OVS_ACTION_ATTR_SET_MASKED);
     char *data = nl_msg_put_unspec_uninit(odp_actions, key_type, key_size * 2);
@@ -7551,7 +7551,7 @@ commit_masked_set_action(struct ofpbuf *odp_actions,
         /*VLOG_INFO("++++++tsf commit_masked_set_action *data=%d", *data++);*/
     }
     nl_msg_end_nested(odp_actions, offset);
-    VLOG_INFO("++++++zq commit_masked_set_action end");
+    /*VLOG_INFO("++++++zq commit_masked_set_action end");*/
 }
 
 /* If any of the flow key data that ODP actions can modify are different in
@@ -7621,7 +7621,7 @@ pof_commit(enum ovs_key_attr attr, bool use_masked_set,
 
 
         if (use_masked_set && !fully_masked) { //run here
-            VLOG_INFO("++++++zq pof_commit: commit_masked_set_action: attr = %d", attr);
+            /*VLOG_INFO("++++++zq pof_commit: commit_masked_set_action: attr = %d", attr);*/
             commit_masked_set_action(odp_actions, attr, key, mask, size);
         } else {
             if (!fully_masked) {
@@ -7831,30 +7831,29 @@ static void
 commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
                             struct ofpbuf *odp_actions,
                             struct flow_wildcards *wc,
-                            bool use_masked, int index,
-                            long long int ingress_time)
+                            bool use_masked, int index)
 {
     struct ovs_key_add_field key, base, mask;
 
     struct pof_flow * pflow = flow;
     struct pof_flow * pbase = base_flow;
 
-    get_pof_add_field_key(pflow, &key, index, ingress_time);
-    get_pof_add_field_key(pbase, &base, index, ingress_time);
+    get_pof_add_field_key(pflow, &key, index);
+    get_pof_add_field_key(pbase, &base, index);
     use_masked = true;
-    get_pof_add_field_mask(pflow, &mask, index, ingress_time);
+    get_pof_add_field_mask(pflow, &mask, index);
 
-    VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before pof_commit");
+    /*VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before pof_commit");*/
     if (pof_commit(OVS_KEY_ATTR_ADD_FIELD, use_masked,
                    &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
-        VLOG_INFO("+++++++++++tsf commit_pof_add_field_action: after pof_commit");
+        /*VLOG_INFO("+++++++++++tsf commit_pof_add_field_action: after pof_commit");*/
         put_pof_add_field_key(&base, base_flow, index);
         put_pof_add_field_key(&mask, &wc->masks, index);
     }
 }
 
 static void
-get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index, long long int ingress_time)
+get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
 {
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
@@ -7876,19 +7875,18 @@ get_pof_add_field_key(const struct pof_flow *flow, struct ovs_key_add_field *eth
 //            VLOG_INFO("++++++zq get_add_pof_field_key:  eth->out_port=%d", eth->out_port);
         }
     } else {   // add INT fields which come from ovs, value[0] stores the INT intent
-        VLOG_INFO("++++++zq get_add_pof_field_key: add INT fields");
+        /*VLOG_INFO("++++++zq get_add_pof_field_key: add INT fields");*/
         eth->value[0] = flow->value[index][0];
         eth->device_id = flow->telemetry.device_id;
         eth->in_port = flow->telemetry.in_port;
         eth->out_port = flow->telemetry.out_port;
-        eth->ingress_time = (uint32_t)ingress_time;
-        VLOG_INFO("++++++zq get_add_field_key:  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d, ingress_time=%u",
-                eth->value[0], eth->device_id, eth->in_port, eth->out_port, eth->ingress_time);
+        /*VLOG_INFO("++++++zq get_add_field_key:  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
+                eth->value[0], eth->device_id, eth->in_port, eth->out_port);*/
     }
 }
 
 static void
-get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index, long long int ingress_time)
+get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *eth, int index)
 {
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
@@ -7913,9 +7911,8 @@ get_pof_add_field_mask(const struct pof_flow *flow, struct ovs_key_add_field *et
         eth->device_id = flow->telemetry.device_id;
         eth->in_port = flow->telemetry.in_port;
         eth->out_port = flow->telemetry.out_port;
-        eth->ingress_time = (uint32_t)ingress_time;
-        VLOG_INFO("++++++zq get_pof_add_field_mask(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d,ingress_time=%u",
-                  eth->value[0], eth->device_id, eth->in_port, eth->out_port, eth->ingress_time);
+        /*VLOG_INFO("++++++zq get_pof_add_field_mask(from ovs):  eth->value[0](intent)=%d, device_id=%lx, in_port=%d, out_port=%d",
+                  eth->value[0], eth->device_id, eth->in_port, eth->out_port);*/
     }
 }
 
@@ -8037,7 +8034,7 @@ static void
 commit_pof_action(const struct flow *flow, struct flow *base_flow,
                   struct ofpbuf *odp_actions,
                   struct flow_wildcards *wc,
-                  bool use_masked, long long int ingress_time) {
+                  bool use_masked) {
     struct pof_flow *pflow = flow;
 
     uint8_t action_flag = 0;
@@ -8061,7 +8058,7 @@ commit_pof_action(const struct flow *flow, struct flow *base_flow,
 
             case OFPACT_ADD_FIELD:       // flag == 9
                 /*VLOG_INFO("++++++tsf commit_pof_action: commit_pof_add_field_action.");*/
-                commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i, ingress_time);
+                commit_pof_add_field_action(flow, base_flow, odp_actions, wc, use_masked, i);
                 break;
 
             case OFPACT_DELETE_FIELD:    // flag == 10
@@ -8885,7 +8882,7 @@ enum slow_path_reason
 commit_odp_actions(const struct flow *flow, struct flow *base,
                    struct ofpbuf *odp_actions, struct flow_wildcards *wc,
                    bool use_masked, bool pending_encap, bool pending_decap,
-                   struct ofpbuf *encap_data, long long int ingress_time)
+                   struct ofpbuf *encap_data)
 {
     /* If you add a field that OpenFlow actions can change, and that is visible
      * to the datapath (including all data fields), then you should also add
@@ -8895,7 +8892,7 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
     enum slow_path_reason slow1, slow2;
     bool mpls_done = false;
 
-    commit_pof_action(flow, base, odp_actions, wc, use_masked, ingress_time);
+    commit_pof_action(flow, base, odp_actions, wc, use_masked);
 
 //    commit_encap_decap_action(flow, base, odp_actions, wc,
 //                              pending_encap, pending_decap, encap_data);

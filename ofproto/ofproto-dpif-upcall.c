@@ -337,13 +337,6 @@ struct ukey_op {
     struct dpif_op dop;           /* Flow operation. */
 };
 
-/* zq: to calculate bandwidth. */
-struct bandwidth_info {
-    bool comp_latch;             /* If true, change the bandwidth information */
-    uint64_t diff_time;          /* The time that comp_latch value changes. */
-    uint64_t n_packets;
-    uint64_t n_bytes;
-};
 
 static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
 static struct ovs_list all_udpifs = OVS_LIST_INITIALIZER(&all_udpifs);
@@ -958,23 +951,21 @@ udpif_update_bandwidth(struct udpif *udpif)
             VLOG_INFO("++++zq:udpif_update_bandwidth:bd_info:ukey->bd_packets=%"PRIu64",ukey->bd_bytes=%"PRIu64",ukey->bd_used=%lld",
                       bd_packets, bd_bytes, bd_used);
             bandwidth = (bd_bytes + 24 * bd_packets) /(bd_used * 1000.0) * 8 ; //mbps
-            VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);
+            VLOG_INFO("++++zq:revalidate bandwidth =%d", bandwidth);
 
-            if(bandwidth != 0) {
-                VLOG_INFO("++++zq:revalidate bandwidth");
-                err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
-                if (err) {
-                    VLOG_INFO("++++zq:revalidate:udpif_flow_unprogram error");
-                }
-                ukey->bd_backlog_packets = ukey->bd_npackets;
-                ukey->bd_backlog_bytes = ukey->bd_nbytes;
-                err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
-                if (err) {
-                    VLOG_INFO("++++zq:revalidate:udpif_flow_program error");
-                }
-                ukey->bd_backlog_packets = ukey->bd_npackets;
-                ukey->bd_backlog_bytes = ukey->bd_nbytes;
+
+            err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            if (err) {
+                VLOG_INFO("++++zq:revalidate:udpif_flow_unprogram error");
             }
+            ukey->bd_backlog_packets = ukey->bd_npackets;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes;
+            err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            if (err) {
+                VLOG_INFO("++++zq:revalidate:udpif_flow_program error");
+            }
+            ukey->bd_backlog_packets = ukey->bd_npackets;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes;
         }
 
             /*last_n_packets = ukey->bd_packets;
@@ -997,7 +988,7 @@ udpif_revalidator(void *arg)
     /* Used by all revalidators. */
     struct revalidator *revalidator = arg;
     struct udpif *udpif = revalidator->udpif;
-    bool leader = revalidator == &udpif->revalidators[0]; //is the first revalidators ,leader is always true
+    bool leader = revalidator == &udpif->revalidators[0]; //zq: is the first revalidators ,leader is always true
 
     /* Used only by the leader. */
     long long int start_time = 0;
@@ -2425,7 +2416,7 @@ revalidate_ukey(struct udpif *udpif, struct udpif_key *ukey,
 //              push.used, stats->n_packets, push.n_packets, stats->n_bytes, push.n_bytes); /*zq:all is zero*/
 
     if (need_revalidate) {
-        VLOG_INFO("++++++++zq revalidate_ukey: need_revalidate");
+        /*VLOG_INFO("++++++++zq revalidate_ukey: need_revalidate");*/
         if (should_revalidate(udpif, push.n_packets, ukey->stats.used)) {
             if (!ukey->xcache) {
                 ukey->xcache = xlate_cache_new();
@@ -2434,7 +2425,7 @@ revalidate_ukey(struct udpif *udpif, struct udpif_key *ukey,
             }
             result = revalidate_ukey__(udpif, ukey, push.tcp_flags,
                                        odp_actions, recircs, ukey->xcache);
-            VLOG_INFO("++++++++zq revalidate_ukey 1111: result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);
+            /*VLOG_INFO("++++++++zq revalidate_ukey 1111: result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);*/
         } /* else delete; too expensive to revalidate */
     } else if (!push.n_packets || ukey->xcache
                || !populate_xcache(udpif, ukey, push.tcp_flags)) {
@@ -2874,16 +2865,16 @@ revalidate(struct revalidator *revalidator)
             }
             ukey->dump_seq = dump_seq;
 
-            if(n_dumped != 0){
+            if(n_dumped != 0 && result != UKEY_DELETE){
             bd_packets = f->stats.n_packets + ukey->bd_backlog_packets - ukey->bd_npackets;
             bd_bytes = f->stats.n_bytes + ukey->bd_backlog_bytes - ukey->bd_nbytes;
             bd_used = udpif->dpif->current_ms - ukey->bd_time;
-            VLOG_INFO("++++zq:revalidate:bd_info:f->stats.n_packets=%"PRIu64",f->stats.n_bytes=%"PRIu64",current_ms=%lld,"
+            /*VLOG_INFO("++++zq:revalidate:bd_info:f->stats.n_packets=%"PRIu64",f->stats.n_bytes=%"PRIu64",current_ms=%lld,"
                        "ukey->bd_backlog_packets=%"PRIu64",ukey->bd_backlog_bytes=%"PRIu64",,"
                        "ukey->bd_npackets=%"PRIu64",ukey->bd_nbytes=%"PRIu64",bd_time=%lld",
                       f->stats.n_packets, f->stats.n_bytes, udpif->dpif->current_ms,
                       ukey->bd_backlog_packets, ukey->bd_backlog_bytes,
-                      ukey->bd_npackets, ukey->bd_nbytes, ukey->bd_time);
+                      ukey->bd_npackets, ukey->bd_nbytes, ukey->bd_time);*/
             ukey->bd_npackets = f->stats.n_packets + ukey->bd_backlog_packets;
             ukey->bd_nbytes = f->stats.n_bytes + ukey->bd_backlog_bytes;
             ukey->bd_time = udpif->dpif->current_ms;
@@ -2897,7 +2888,7 @@ revalidate(struct revalidator *revalidator)
 
             if (result != UKEY_KEEP) { //zq:run  here result=1
                 /* Takes ownership of 'recircs'. */
-                VLOG_INFO("++++++tsf revalidate: reval_op_init, result=result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);
+                /*VLOG_INFO("++++++tsf revalidate: reval_op_init, result=result = UKEY_KEEP(0):DELETE(1):MODIFY(2)?=%d", result);*/
                 reval_op_init(&ops[n_ops++], result, udpif, ukey, &recircs,
                               &odp_actions);
             }

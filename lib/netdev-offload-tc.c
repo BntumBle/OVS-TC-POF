@@ -1492,7 +1492,7 @@ uint64_t last_n_bytes = 0;
 uint64_t last_time = 0;*/
 
 #define get_mask(a, type) ((const type *)(const void *)(a + 1) + 1)
-float bandwidth = 0.0;
+float bandwidth = 0;
 static int
 netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    struct nlattr *actions, size_t actions_len,
@@ -1943,8 +1943,9 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                         uint32_t device_id = ntohl(add_field_key->device_id);
                         uint8_t in_port = add_field_key->in_port;
                         uint8_t out_port = add_field_key->out_port;
-                        uint32_t ingress_time = add_field_key-> ingress_time;
+                        /*uint32_t ingress_time = add_field_key-> ingress_time;*/
                         uint8_t mapInfo = add_field_key->value[0];
+                        VLOG_INFO("++++++zq netdev_flow_put:  mapInfo=:%d", mapInfo);
 
                         if (mapInfo & (UINT8_C(1))) { // zq: in_port+out_port, 4B
                             ovs_be32 mpls_lse = (ovs_be32)  (((uint16_t) out_port) << 16) | (uint16_t) in_port;
@@ -1968,7 +1969,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             action->type = TC_ACT_MPLS_PUSH;
                             flower.action_count++;
                         }
-                        if (mapInfo & (UINT8_C(1) << 2)) { // zq: device_id, 4B
+                        if (mapInfo & (UINT8_C(1) << 1)) { // zq: device_id, 4B
                             ovs_be32 mpls_lse = (ovs_be32) device_id;
                             VLOG_INFO("++++++zq netdev_flow_put: device_id:0x%"
                                               PRIx32, mpls_lse);
@@ -2014,10 +2015,14 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             action->type = TC_ACT_MPLS_PUSH;
                             flower.action_count++;
                         }*/
-                        if (mapInfo & (UINT8_C(1) << 3)) { // zq: bandwidth, 4B
-                            ovs_be32 mpls_lse = (ovs_be32) bandwidth;
-                            VLOG_INFO("++++++zq netdev_flow_put: hop latency:0x%"
-                                              PRIx32, mpls_lse);
+                        if (mapInfo & (UINT8_C(1) << 2)) { // zq: bandwidth, 4B
+                            if(bandwidth == 0){
+                                bandwidth = 1;
+                            }
+                            int bandwidth_n = (int) bandwidth;
+                            VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", bandwidth_n);
+                            ovs_be32 mpls_lse = htonl((ovs_be32) bandwidth_n);
+                            VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", mpls_lse);
                             action->mpls.proto = 0x4788;
                             VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"
                                               PRIx16, action->mpls.proto);
@@ -2208,20 +2213,20 @@ netdev_tc_flow_del(struct netdev *netdev OVS_UNUSED,
     if(stats == NULL){
         VLOG_INFO("zq: netdev_tc_flow_del: stats == NULL");
     }
-    VLOG_INFO("+++++++++++zq: netdev_tc_flow_del: stats->n_packets=%"PRIu64", flower.stats.n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", flower.stats.n_bytes=%"PRIu64
+    /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_del: stats->n_packets=%"PRIu64", flower.stats.n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", flower.stats.n_bytes=%"PRIu64
               ", stats->used=%.3fs, flower.lastused=%.3fs", stats->n_packets, get_32aligned_u64(&flower.stats.n_packets),stats->n_bytes,
-              get_32aligned_u64(&flower.stats.n_bytes), (time_msec() - stats->used)/1000.0, (time_msec()-flower.lastused)/1000.0);
+              get_32aligned_u64(&flower.stats.n_bytes), (time_msec() - stats->used)/1000.0, (time_msec()-flower.lastused)/1000.0);*/
 
     if (stats) {
-        VLOG_INFO("zq: netdev_tc_flow_del: stats == 1");
+        /*VLOG_INFO("zq: netdev_tc_flow_del: stats == 1");*/
         memset(stats, 0, sizeof *stats);
         if (!tc_get_flower(&id, &flower)) {
             stats->n_packets = get_32aligned_u64(&flower.stats.n_packets);
             stats->n_bytes = get_32aligned_u64(&flower.stats.n_bytes);
             stats->used = flower.lastused;
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_del(stats): stats->n_packets=%"PRIu64", flower.stats.n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", flower.stats.n_bytes=%"PRIu64
+            /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_del(stats): stats->n_packets=%"PRIu64", flower.stats.n_packets=%"PRIu64", stats->n_bytes=%"PRIu64", flower.stats.n_bytes=%"PRIu64
                               ", stats->used=%.3fs, flower.lastused=%.3fs", stats->n_packets, get_32aligned_u64(&flower.stats.n_packets),stats->n_bytes,
-                      get_32aligned_u64(&flower.stats.n_bytes), (time_msec() - stats->used)/1000.0, (time_msec()-flower.lastused)/1000.0);
+                      get_32aligned_u64(&flower.stats.n_bytes), (time_msec() - stats->used)/1000.0, (time_msec()-flower.lastused)/1000.0);*/
         }
     }
 
