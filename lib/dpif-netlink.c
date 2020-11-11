@@ -2303,7 +2303,7 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
                 n_ops--;
             }
 
-            dpif_netlink_operate_chunks(dpif, new_ops, count);
+            //dpif_netlink_operate_chunks(dpif, new_ops, count);
         }
     } else if (offload_type != DPIF_OFFLOAD_ALWAYS) {
         dpif_netlink_operate_chunks(dpif, ops, n_ops);

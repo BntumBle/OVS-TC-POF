@@ -2385,7 +2385,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
 static int
 nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
 {
-    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts start");
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts start");*/
     bool ingress, released = false;
     size_t offset;
     size_t act_offset;
@@ -2399,7 +2399,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
 
         action = flower->actions;
         for (i = 0; i < flower->action_count; i++, action++) {
-            VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: flower->action->type: %d", action->type);
+            /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: flower->action->type: %d", action->type);*/
             switch (action->type) {
             case TC_ACT_PEDIT: {
                 VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT start");
@@ -2462,13 +2462,13 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             }
             break;
             case TC_ACT_MPLS_PUSH: {
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH start");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH start");*/
                 act_offset = nl_msg_start_nested(request, act_index++);
                 nl_msg_put_act_push_mpls(request, action->mpls.proto,
                                          action->mpls.label, action->mpls.tc,
                                          action->mpls.ttl, action->mpls.bos);
                 nl_msg_end_nested(request, act_offset);
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH end");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_MPLS_PUSH end");*/
             }
             break;
             case TC_ACT_MPLS_SET: {
@@ -2480,7 +2480,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             }
             break;
             case TC_ACT_OUTPUT: {
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT start");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT start");*/
                 if (!released && flower->tunnel) {
                     act_offset = nl_msg_start_nested(request, act_index++);
                     nl_msg_put_act_tunnel_key_release(request);
@@ -2525,7 +2525,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
                 nl_msg_put_act_cookie(request, &flower->act_cookie);
                 nl_msg_put_act_flags(request);
                 nl_msg_end_nested(request, act_offset);
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT end");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_OUTPUT end");*/
             }
             break;
             case TC_ACT_GOTO: {
@@ -2564,7 +2564,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
         nl_msg_end_nested(request, act_offset);
     }
     nl_msg_end_nested(request, offset);
-    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts end");
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts end");*/
 
     return 0;
 }

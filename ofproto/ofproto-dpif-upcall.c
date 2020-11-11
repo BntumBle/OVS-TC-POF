@@ -918,13 +918,16 @@ udpif_run_flow_rebalance(struct udpif *udpif)
 uint64_t bd_packets = 0;      // zq: last flow statistics
 uint64_t bd_bytes = 0;
 long long int bd_used = 0;
+uint64_t last_n_packets = 0;      // zq: last flow statistics
+uint64_t last_n_bytes = 0;
+long long int last_time = 0;
 
 static void
 udpif_run_update_bandwidth(struct udpif *udpif)
 {
     long long int now;
     now = time_msec();
-    if (now < udpif->update_bandwidth_time + 3000) {
+    if (now < udpif->update_bandwidth_time + 1000) {
         return;
     }
     udpif->update_bandwidth_time = now;
@@ -948,31 +951,35 @@ udpif_update_bandwidth(struct udpif *udpif)
             n_packets = ukey->bd_packets - last_n_packets;
             n_bytes = ukey->bd_bytes - last_n_bytes;
             diff_time = ukey->bd_used - last_time;*/
-            VLOG_INFO("++++zq:udpif_update_bandwidth:bd_info:ukey->bd_packets=%"PRIu64",ukey->bd_bytes=%"PRIu64",ukey->bd_used=%lld",
-                      bd_packets, bd_bytes, bd_used);
-            bandwidth = (bd_bytes + 24 * bd_packets) /(bd_used * 1000.0) * 8 ; //mbps
-            VLOG_INFO("++++zq:revalidate bandwidth =%d", bandwidth);
-
+            /*VLOG_INFO("++++zq:udpif_update_bandwidth:bd_info:bd_packets=%"
+                              PRIu64
+                              ",bd_bytes=%"
+                              PRIu64
+                              ",bd_used=%lld", bd_packets, bd_bytes, bd_used);
+            bandwidth = (bd_bytes + 28 * bd_packets) / (bd_used * 1000.0) * 8; //mbps
+            VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);*/
 
             err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
             if (err) {
                 VLOG_INFO("++++zq:revalidate:udpif_flow_unprogram error");
             }
             ukey->bd_backlog_packets = ukey->bd_npackets;
-            ukey->bd_backlog_bytes = ukey->bd_nbytes;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes ;
             err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
             if (err) {
                 VLOG_INFO("++++zq:revalidate:udpif_flow_program error");
             }
             ukey->bd_backlog_packets = ukey->bd_npackets;
             ukey->bd_backlog_bytes = ukey->bd_nbytes;
-        }
 
-            /*last_n_packets = ukey->bd_packets;
-            last_n_bytes = ukey->bd_bytes;
-            last_time = ukey->bd_used;*/
+
+                /*last_n_packets = ukey->bd_packets;
+                last_n_bytes = ukey->bd_bytes;
+                last_time = ukey->bd_used;*/
 //                        VLOG_INFO("++++zq:revalidate:bd_info:last_n_packets=%"PRIu64",last_n_bytes=%"PRIu64",last_time=%lld",
 //                                  last_n_packets, last_n_bytes, last_time);
+
+        }
     }
 }
 
@@ -1085,10 +1092,10 @@ udpif_revalidator(void *arg)
                           duration);
             }
 
-            /* zq: control approximate revalidating period here.ofproto_max_idle: 1000ms, ofproto_max_revalidator:500ms */
+            /* zq: control approximate revalidating period here.ofproto_max_idle: 10000ms, ofproto_max_revalidator:500ms */
 //            poll_timer_wait_until(start_time + MIN(ofproto_max_idle,
 //                                                   ofproto_max_revalidator));
-            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 1000));
+            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 5000));
             seq_wait(udpif->reval_seq, last_reval_seq);
             latch_wait(&udpif->exit_latch);
             latch_wait(&udpif->pause_latch);
@@ -2865,19 +2872,29 @@ revalidate(struct revalidator *revalidator)
             }
             ukey->dump_seq = dump_seq;
 
-            if(n_dumped != 0 && result != UKEY_DELETE){
-            bd_packets = f->stats.n_packets + ukey->bd_backlog_packets - ukey->bd_npackets;
-            bd_bytes = f->stats.n_bytes + ukey->bd_backlog_bytes - ukey->bd_nbytes;
-            bd_used = udpif->dpif->current_ms - ukey->bd_time;
-            /*VLOG_INFO("++++zq:revalidate:bd_info:f->stats.n_packets=%"PRIu64",f->stats.n_bytes=%"PRIu64",current_ms=%lld,"
+            if(f->stats.n_packets != 0 && udpif->dpif->current_ms - ukey->bd_time > 1000){ //update bd every t s
+                bd_packets = f->stats.n_packets + ukey->bd_backlog_packets - ukey->bd_npackets;
+                bd_bytes = f->stats.n_bytes + ukey->bd_backlog_bytes - ukey->bd_nbytes;
+                bd_used = udpif->dpif->current_ms - ukey->bd_time;
+
+                bandwidth = (bd_bytes + 28 * bd_packets) / (bd_used * 1000.0) * 8; //mbps
+                VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);
+                /*bd_packets = f->stats.n_packets - last_n_packets;
+                bd_bytes = f->stats.n_bytes - last_n_bytes;
+                bd_used = udpif->dpif->current_ms - last_time;*/
+
+                /*VLOG_INFO("++++zq:revalidate:bd_info:f->stats.n_packets=%"PRIu64",f->stats.n_bytes=%"PRIu64",current_ms=%lld,"
                        "ukey->bd_backlog_packets=%"PRIu64",ukey->bd_backlog_bytes=%"PRIu64",,"
                        "ukey->bd_npackets=%"PRIu64",ukey->bd_nbytes=%"PRIu64",bd_time=%lld",
                       f->stats.n_packets, f->stats.n_bytes, udpif->dpif->current_ms,
                       ukey->bd_backlog_packets, ukey->bd_backlog_bytes,
                       ukey->bd_npackets, ukey->bd_nbytes, ukey->bd_time);*/
-            ukey->bd_npackets = f->stats.n_packets + ukey->bd_backlog_packets;
-            ukey->bd_nbytes = f->stats.n_bytes + ukey->bd_backlog_bytes;
-            ukey->bd_time = udpif->dpif->current_ms;
+                ukey->bd_npackets = f->stats.n_packets + ukey->bd_backlog_packets;
+                ukey->bd_nbytes = f->stats.n_bytes + ukey->bd_backlog_bytes;
+                ukey->bd_time = udpif->dpif->current_ms;
+                /*last_n_packets = f->stats.n_packets;
+                last_n_bytes = f->stats.n_bytes;
+                last_time = udpif->dpif->current_ms;*/
             }
 
             if (netdev_is_offload_rebalance_policy_enabled() &&

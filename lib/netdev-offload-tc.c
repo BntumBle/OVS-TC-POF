@@ -1887,10 +1887,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 //            }
 //        }
         else if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");
+            /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_SET_MASKED");*/
             const struct nlattr *a = nl_attr_get(nla);
             enum ovs_key_attr type = nl_attr_type(a);
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: type=%d", type);
+            /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: type=%d", type);*/
             switch (type) {
                 case OVS_KEY_ATTR_SET_FIELD: {
                     VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_SET_FIELD");
@@ -1906,13 +1906,13 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                 }
                     break;
                 case OVS_KEY_ATTR_ADD_FIELD: {
-                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
+                    /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");*/
                     const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
-                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
+                    /*VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
                     VLOG_INFO("++++++zq netdev_flow_put:  add_field_key_value[0]=:%d", add_field_key->value[0]);
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[1]=:%d", add_field_key->value[1]);
                     VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[2]=:%d", add_field_key->value[2]);
-                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[3]=:%d", add_field_key->value[3]);
+                    VLOG_INFO("++++++zq netdev_flow_put: add_field_key_value[3]=:%d", add_field_key->value[3]);*/
                     if (add_field_key->field_id != 0xffff) {   // 'add_static_field' action, fields come from controller
                         uint16_t int_data_1 = (uint16_t) (add_field_key->value[1] << 8) | add_field_key->value[0];
                         uint16_t int_data_2 = (uint16_t) (add_field_key->value[3] << 8) | add_field_key->value[2];
@@ -1945,7 +1945,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                         uint8_t out_port = add_field_key->out_port;
                         /*uint32_t ingress_time = add_field_key-> ingress_time;*/
                         uint8_t mapInfo = add_field_key->value[0];
-                        VLOG_INFO("++++++zq netdev_flow_put:  mapInfo=:%d", mapInfo);
+                        /*VLOG_INFO("++++++zq netdev_flow_put:  mapInfo=:%d", mapInfo);*/
 
                         if (mapInfo & (UINT8_C(1))) { // zq: in_port+out_port, 4B
                             ovs_be32 mpls_lse = (ovs_be32)  (((uint16_t) out_port) << 16) | (uint16_t) in_port;
@@ -2016,28 +2016,25 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             flower.action_count++;
                         }*/
                         if (mapInfo & (UINT8_C(1) << 2)) { // zq: bandwidth, 4B
-                            if(bandwidth == 0){
-                                bandwidth = 1;
-                            }
-                            int bandwidth_n = (int) bandwidth;
+                            int bandwidth_n = (int) bandwidth + 1; //zq: avoid ttl to be zero
                             VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", bandwidth_n);
                             ovs_be32 mpls_lse = htonl((ovs_be32) bandwidth_n);
                             VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", mpls_lse);
                             action->mpls.proto = 0x4788;
-                            VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"
-                                              PRIx16, action->mpls.proto);
+                            /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"
+                                              PRIx16, action->mpls.proto);*/
                             action->mpls.label = mpls_lse_to_label(mpls_lse);
-                            VLOG_INFO("++++++zq netdev_flow_put: action->mpls.label:0x%"
-                                              PRIx16, action->mpls.label);
+                            /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.label:0x%"
+                                              PRIx16, action->mpls.label);*/
                             action->mpls.tc = mpls_lse_to_tc(mpls_lse);
-                            VLOG_INFO("++++++zq netdev_flow_put: action->mpls.tc:0x%"
-                                              PRIx16, action->mpls.tc);
+                            /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.tc:0x%"
+                                              PRIx16, action->mpls.tc);*/
                             action->mpls.ttl = mpls_lse_to_ttl(mpls_lse);
-                            VLOG_INFO("++++++zq netdev_flow_put: action->mpls.ttl:0x%"
-                                              PRIx16, action->mpls.ttl);
+                            /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.ttl:0x%"
+                                              PRIx16, action->mpls.ttl);*/
                             action->mpls.bos = mpls_lse_to_bos(mpls_lse);
-                            VLOG_INFO("++++++zq netdev_flow_put: action->mpls.bos:0x%"
-                                              PRIx16, action->mpls.bos);
+                            /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.bos:0x%"
+                                              PRIx16, action->mpls.bos);*/
                             action->type = TC_ACT_MPLS_PUSH;
                             flower.action_count++;
                         }
