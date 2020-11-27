@@ -921,19 +921,20 @@ long long int bd_used = 0;
 uint64_t last_n_packets = 0;      // zq: last flow statistics
 uint64_t last_n_bytes = 0;
 long long int last_time = 0;
+extern float bandwidth;
 
 static void
 udpif_run_update_bandwidth(struct udpif *udpif)
 {
     long long int now;
     now = time_msec();
-    if (now < udpif->update_bandwidth_time + 1000) {
+    if (now < udpif->update_bandwidth_time + 1500 || bandwidth == 0) {
         return;
     }
     udpif->update_bandwidth_time = now;
     udpif_update_bandwidth(udpif);
 };
-extern float bandwidth;
+
 static void
 udpif_update_bandwidth(struct udpif *udpif)
 {
@@ -959,12 +960,12 @@ udpif_update_bandwidth(struct udpif *udpif)
             bandwidth = (bd_bytes + 28 * bd_packets) / (bd_used * 1000.0) * 8; //mbps
             VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);*/
 
-            err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            /*err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
             if (err) {
                 VLOG_INFO("++++zq:revalidate:udpif_flow_unprogram error");
             }
             ukey->bd_backlog_packets = ukey->bd_npackets;
-            ukey->bd_backlog_bytes = ukey->bd_nbytes ;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes ;*/
             err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
             if (err) {
                 VLOG_INFO("++++zq:revalidate:udpif_flow_program error");
@@ -1095,7 +1096,7 @@ udpif_revalidator(void *arg)
             /* zq: control approximate revalidating period here.ofproto_max_idle: 10000ms, ofproto_max_revalidator:500ms */
 //            poll_timer_wait_until(start_time + MIN(ofproto_max_idle,
 //                                                   ofproto_max_revalidator));
-            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 5000));
+            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 1500));
             seq_wait(udpif->reval_seq, last_reval_seq);
             latch_wait(&udpif->exit_latch);
             latch_wait(&udpif->pause_latch);
@@ -2872,7 +2873,7 @@ revalidate(struct revalidator *revalidator)
             }
             ukey->dump_seq = dump_seq;
 
-            if(f->stats.n_packets != 0 && udpif->dpif->current_ms - ukey->bd_time > 1000){ //update bd every t s
+            if(f->stats.n_packets != 0 && udpif->dpif->current_ms - ukey->bd_time > 1500){ //update bd every t s
                 bd_packets = f->stats.n_packets + ukey->bd_backlog_packets - ukey->bd_npackets;
                 bd_bytes = f->stats.n_bytes + ukey->bd_backlog_bytes - ukey->bd_nbytes;
                 bd_used = udpif->dpif->current_ms - ukey->bd_time;

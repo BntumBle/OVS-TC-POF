@@ -1499,7 +1499,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    const ovs_u128 *ufid, struct offload_info *info,
                    struct dpif_flow_stats *stats)
 {
-    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start: bandwidth = %f",bandwidth);
+    /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start: bandwidth = %f",bandwidth);*/
 //    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: stats->n_packets=%ld, stats->n_bytes=%ld"
 //              "stats->used=%lld", stats->n_packets, stats->n_bytes, stats->used); //stats=NULL, aborted
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
@@ -1906,7 +1906,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                 }
                     break;
                 case OVS_KEY_ATTR_ADD_FIELD: {
-                    /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");*/
+                    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_KEY_ATTR_ADD_FIELD");
                     const struct ovs_key_add_field *add_field_key = nl_attr_get(a);
                     /*VLOG_INFO("++++++zq netdev_flow_put: add_field_key_fieldID=:%d", add_field_key->field_id);
                     VLOG_INFO("++++++zq netdev_flow_put:  add_field_key_value[0]=:%d", add_field_key->value[0]);
@@ -2016,10 +2016,10 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             flower.action_count++;
                         }*/
                         if (mapInfo & (UINT8_C(1) << 2)) { // zq: bandwidth, 4B
-                            int bandwidth_n = (int) bandwidth + 1; //zq: avoid ttl to be zero
+                            int bandwidth_n = (int) bandwidth; //zq: avoid ttl to be zero
                             VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", bandwidth_n);
                             ovs_be32 mpls_lse = htonl((ovs_be32) bandwidth_n);
-                            VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", mpls_lse);
+                            /*VLOG_INFO("++++++zq netdev_tc_flow_put: bandwidth:%d", mpls_lse);*/
                             action->mpls.proto = 0x4788;
                             /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.proto:0x%"
                                               PRIx16, action->mpls.proto);*/
@@ -2029,7 +2029,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                             action->mpls.tc = mpls_lse_to_tc(mpls_lse);
                             /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.tc:0x%"
                                               PRIx16, action->mpls.tc);*/
-                            action->mpls.ttl = mpls_lse_to_ttl(mpls_lse);
+                            action->mpls.ttl = mpls_lse_to_ttl(mpls_lse) == 0? 1 : mpls_lse_to_ttl(mpls_lse);
                             /*VLOG_INFO("++++++zq netdev_flow_put: action->mpls.ttl:0x%"
                                               PRIx16, action->mpls.ttl);*/
                             action->mpls.bos = mpls_lse_to_bos(mpls_lse);
