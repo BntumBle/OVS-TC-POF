@@ -135,7 +135,7 @@ struct dp_upcall_info {
 	u32 portid;
 	u8 cmd;
 	u16 mru;
-	long long int now; //added by zq
+	/*long long int now; //added by zq*/
 };
 
 /**

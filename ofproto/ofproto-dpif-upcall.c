@@ -1065,7 +1065,7 @@ udpif_revalidator(void *arg)
             dpif_flow_dump_destroy(udpif->dump);
             seq_change(udpif->dump_seq);
 
-            udpif_run_update_bandwidth(udpif);
+            /*udpif_run_update_bandwidth(udpif);*/
 
             /*if (time_msec() - last_time > 1000) {
 //                VLOG_INFO("++++zq:revalidate bd_info");
@@ -1094,9 +1094,9 @@ udpif_revalidator(void *arg)
             }
 
             /* zq: control approximate revalidating period here.ofproto_max_idle: 10000ms, ofproto_max_revalidator:500ms */
-//            poll_timer_wait_until(start_time + MIN(ofproto_max_idle,
-//                                                   ofproto_max_revalidator));
-            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 1500));
+            poll_timer_wait_until(start_time + MIN(ofproto_max_idle,
+                                                   ofproto_max_revalidator));
+//            poll_timer_wait_until(start_time + MIN(ofproto_max_idle, 1500));
             seq_wait(udpif->reval_seq, last_reval_seq);
             latch_wait(&udpif->exit_latch);
             latch_wait(&udpif->pause_latch);
@@ -2873,13 +2873,13 @@ revalidate(struct revalidator *revalidator)
             }
             ukey->dump_seq = dump_seq;
 
-            if(f->stats.n_packets != 0 && udpif->dpif->current_ms - ukey->bd_time > 1500){ //update bd every t s
+            /*if(f->stats.n_packets != 0 && udpif->dpif->current_ms - ukey->bd_time > 1500){ //update bd every t s
                 bd_packets = f->stats.n_packets + ukey->bd_backlog_packets - ukey->bd_npackets;
                 bd_bytes = f->stats.n_bytes + ukey->bd_backlog_bytes - ukey->bd_nbytes;
                 bd_used = udpif->dpif->current_ms - ukey->bd_time;
 
                 bandwidth = (bd_bytes + 28 * bd_packets) / (bd_used * 1000.0) * 8; //mbps
-                VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);
+                VLOG_INFO("++++zq:revalidate bandwidth =%f", bandwidth);*/
                 /*bd_packets = f->stats.n_packets - last_n_packets;
                 bd_bytes = f->stats.n_bytes - last_n_bytes;
                 bd_used = udpif->dpif->current_ms - last_time;*/
@@ -2890,13 +2890,13 @@ revalidate(struct revalidator *revalidator)
                       f->stats.n_packets, f->stats.n_bytes, udpif->dpif->current_ms,
                       ukey->bd_backlog_packets, ukey->bd_backlog_bytes,
                       ukey->bd_npackets, ukey->bd_nbytes, ukey->bd_time);*/
-                ukey->bd_npackets = f->stats.n_packets + ukey->bd_backlog_packets;
+                /*ukey->bd_npackets = f->stats.n_packets + ukey->bd_backlog_packets;
                 ukey->bd_nbytes = f->stats.n_bytes + ukey->bd_backlog_bytes;
-                ukey->bd_time = udpif->dpif->current_ms;
+                ukey->bd_time = udpif->dpif->current_ms;*/
                 /*last_n_packets = f->stats.n_packets;
                 last_n_bytes = f->stats.n_bytes;
                 last_time = udpif->dpif->current_ms;*/
-            }
+            /*}*/
 
             if (netdev_is_offload_rebalance_policy_enabled() &&
                 result != UKEY_DELETE) {

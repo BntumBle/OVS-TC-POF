@@ -2187,7 +2187,7 @@ out:
 static int
 try_send_to_netdev(struct dpif_netlink *dpif, struct dpif_op *op)
 {
-    /*VLOG_INFO("+++++++++++zq: try_send_to_netdev start");*/
+//    VLOG_INFO("+++++++++++zq: try_send_to_netdev start");
     int err = EOPNOTSUPP;
 
 

@@ -338,6 +338,20 @@ struct ovs_flow_stats {
 	__u64 n_bytes;           /* Number of matched bytes. */
 };
 
+struct ovs_key_set_field {
+    uint16_t field_id;
+    uint16_t offset;
+    uint16_t len;
+    uint8_t value[16];
+};
+
+struct ovs_key_modify_field {
+    uint16_t field_id;
+    uint16_t offset;
+    uint16_t len;
+    uint8_t value[16];
+};
+
 struct ovs_key_add_field {
     uint16_t field_id;    /* tsf: if field_id=0xffff, add_INT; otherwise, add_field */
     uint16_t offset;

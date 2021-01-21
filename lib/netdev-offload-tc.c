@@ -1499,6 +1499,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
                    const ovs_u128 *ufid, struct offload_info *info,
                    struct dpif_flow_stats *stats)
 {
+//    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start");
     /*VLOG_INFO("+++++++++++zq: netdev_tc_flow_put start: bandwidth = %f",bandwidth);*/
 //    VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: stats->n_packets=%ld, stats->n_bytes=%ld"
 //              "stats->used=%lld", stats->n_packets, stats->n_bytes, stats->used); //stats=NULL, aborted
