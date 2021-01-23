@@ -373,42 +373,43 @@ struct ovs_key_delete_field {
 };
 
 enum ovs_key_attr {
-	OVS_KEY_ATTR_UNSPEC,
-	OVS_KEY_ATTR_ENCAP,	/* Nested set of encapsulated attributes. */
-	OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
-	OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
-	OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
-	OVS_KEY_ATTR_VLAN,	/* be16 VLAN TCI */
-	OVS_KEY_ATTR_ETHERTYPE,	/* be16 Ethernet type */
-	OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
-	OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
-	OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
-	OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
-	OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
-	OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
-	OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
-	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
-	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
-	OVS_KEY_ATTR_TUNNEL,    /* Nested set of ovs_tunnel attributes */
-	OVS_KEY_ATTR_SCTP,      /* struct ovs_key_sctp */
-	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
-	OVS_KEY_ATTR_DP_HASH,   /* u32 hash value. Value 0 indicates the hash
+    OVS_KEY_ATTR_UNSPEC,
+    OVS_KEY_ATTR_ENCAP,    /* Nested set of encapsulated attributes. */
+    OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
+    OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
+    OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
+    OVS_KEY_ATTR_VLAN,    /* be16 VLAN TCI */
+    OVS_KEY_ATTR_ETHERTYPE,    /* be16 Ethernet type */
+    OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
+    OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
+    OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
+    OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
+    OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
+    OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
+    OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
+    OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
+    OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
+    OVS_KEY_ATTR_TUNNEL,    /* Nested set of ovs_tunnel attributes */
+    OVS_KEY_ATTR_SCTP,      /* struct ovs_key_sctp */
+    OVS_KEY_ATTR_TCP_FLAGS,    /* be16 TCP flags. */
+    OVS_KEY_ATTR_DP_HASH,   /* u32 hash value. Value 0 indicates the hash
 				   is not computed by the datapath. */
-	OVS_KEY_ATTR_RECIRC_ID, /* u32 recirc id */
-	OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
+    OVS_KEY_ATTR_RECIRC_ID, /* u32 recirc id */
+    OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
 				 * The implementation may restrict
 				 * the accepted length of the array. */
-	OVS_KEY_ATTR_CT_STATE,	/* u32 bitmask of OVS_CS_F_* */
-	OVS_KEY_ATTR_CT_ZONE,	/* u16 connection tracking zone. */
-	OVS_KEY_ATTR_CT_MARK,	/* u32 connection tracking mark */
-	OVS_KEY_ATTR_CT_LABELS,	/* 16-octet connection tracking labels */
-	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,   /* struct ovs_key_ct_tuple_ipv4 */
-	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
-	OVS_KEY_ATTR_NSH,       /* Nested set of ovs_nsh_key_* */
+    OVS_KEY_ATTR_CT_STATE,    /* u32 bitmask of OVS_CS_F_* */
+    OVS_KEY_ATTR_CT_ZONE,    /* u16 connection tracking zone. */
+    OVS_KEY_ATTR_CT_MARK,    /* u32 connection tracking mark */
+    OVS_KEY_ATTR_CT_LABELS,    /* 16-octet connection tracking labels */
+    OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,   /* struct ovs_key_ct_tuple_ipv4 */
+    OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
+    OVS_KEY_ATTR_NSH,       /* Nested set of ovs_nsh_key_* */
     OVS_KEY_ATTR_SET_FIELD,    /* zq: set_field action in pof (29)*/
     OVS_KEY_ATTR_MODIFY_FIELD, /* zq: modify_field action in pof(29) */
     OVS_KEY_ATTR_ADD_FIELD,    /* zq: add_field action in pof */
     OVS_KEY_ATTR_DELETE_FIELD, /* zq: delete_field action in pof */
+}
 
 #ifdef __KERNEL__
 	/* Only used within kernel data path. */
