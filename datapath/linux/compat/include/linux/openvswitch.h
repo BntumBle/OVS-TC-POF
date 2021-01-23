@@ -405,7 +405,10 @@ enum ovs_key_attr {
 	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,   /* struct ovs_key_ct_tuple_ipv4 */
 	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
 	OVS_KEY_ATTR_NSH,       /* Nested set of ovs_nsh_key_* */
-    OVS_KEY_ATTR_ADD_FIELD,    /* tsf: add_field action in pof */
+    OVS_KEY_ATTR_SET_FIELD,    /* zq: set_field action in pof (29)*/
+    OVS_KEY_ATTR_MODIFY_FIELD, /* zq: modify_field action in pof(29) */
+    OVS_KEY_ATTR_ADD_FIELD,    /* zq: add_field action in pof */
+    OVS_KEY_ATTR_DELETE_FIELD, /* zq: delete_field action in pof */
 
 #ifdef __KERNEL__
 	/* Only used within kernel data path. */
