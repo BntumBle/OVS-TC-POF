@@ -94,6 +94,7 @@ struct netdev {
 
     /* Functions to control flow offloading. */
     OVSRCU_TYPE(const struct netdev_flow_api *) flow_api;
+    const char *dpif_type;          /* zq:Type of dpif this netdev belongs to. */
     struct netdev_hw_info hw_info;	/* offload-capable netdev info */
 };
 

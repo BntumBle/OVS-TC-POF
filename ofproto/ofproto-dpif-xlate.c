@@ -5185,7 +5185,7 @@ xlate_output_action(struct xlate_ctx *ctx, ofp_port_t port,
                            do_xlate_actions);
         break;
     case OFPP_NORMAL:
-        VLOG_INFO("zq: xlate_output_action: OFPP_NORMAL");
+//        VLOG_INFO("zq: xlate_output_action: OFPP_NORMAL");
         xlate_normal(ctx);
         break;
     case OFPP_FLOOD:
@@ -6772,7 +6772,7 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
         case OFPACT_SET_FIELD:  {
-            VLOG_INFO("zq: pof_do_xlate_actions OFPACT_SET_FIELD->type:%d, len:%d", a->type, a->len);
+            /*VLOG_INFO("zq: pof_do_xlate_actions OFPACT_SET_FIELD->type:%d, len:%d", a->type, a->len);*/
             set_field = ofpact_get_SET_FIELD(a);
             struct pof_match_u pf;
             pf.field_id = set_field->field_id;
@@ -6828,6 +6828,10 @@ pof_do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             memset(flow->mask[action_num], 0xff, add_field->tag_len / 8);
 
             action_num++;
+
+//            struct ofpact_push_mpls *mpls;
+//            memcpy(mpls->ofpact, add_field->tag_value, add_field->tag_len / 8);
+//            compose_mpls_push_action(ctx, ofpact_get_PUSH_MPLS(a));
         }
             break;
 

@@ -2273,10 +2273,32 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
         while (n_ops > 0) {
             count = 0;
 
-            while (n_ops > 0 && count < OPERATE_MAX_OPS) {
+            while (n_ops > 0 && count < OPERATE_MAX_OPS) {//zq:one flow one op
                 struct dpif_op *op = ops[i++];
                 /*VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev");*/
-                err = try_send_to_netdev(dpif, op);
+                /*zq:selective offload*/
+                const struct nlattr *nla;
+                int action_count=0;
+                size_t left;
+                if(op->type == DPIF_OP_FLOW_PUT) {
+                    VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev FLOW_PUT_1");
+                    struct dpif_flow_put *put = &op->flow_put;
+                    NL_ATTR_FOR_EACH(nla, left, put->actions, put->actions_len) {
+                        if (action_count < 3) {
+                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count==0");
+                            if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
+                                VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev OUTPUT_1");
+                                err = try_send_to_netdev(dpif, op);
+                            } else {
+                              VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev NO_OUTPUT_1");
+                                dpif_netlink_operate_chunks(dpif, ops, n_ops);
+                            }
+                            action_count++;
+                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count:%d",action_count);
+                        }
+                    }
+                }
+//                err = try_send_to_netdev(dpif, op);
                 if (err && err != EEXIST) {
                     if (offload_type == DPIF_OFFLOAD_ALWAYS) {
                         /* We got an error while offloading an op. Since
@@ -2303,7 +2325,7 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
                 n_ops--;
             }
 
-            //dpif_netlink_operate_chunks(dpif, new_ops, count);
+            dpif_netlink_operate_chunks(dpif, new_ops, count);
         }
     } else if (offload_type != DPIF_OFFLOAD_ALWAYS) {
         dpif_netlink_operate_chunks(dpif, ops, n_ops);

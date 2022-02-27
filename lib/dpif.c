@@ -596,7 +596,7 @@ dpif_port_add(struct dpif *dpif, struct netdev *netdev, odp_port_t *port_nop)
                     dpif_name(dpif), netdev_name, port_no);
 
         if (!dpif_is_tap_port(netdev_get_type(netdev))) {
-
+            const char *dpif_type_str = dpif_normalize_type(dpif_type(dpif));
             struct dpif_port dpif_port;
 
             dpif_port.type = CONST_CAST(char *, netdev_get_type(netdev));
@@ -1383,7 +1383,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                 }
 
                 case DPIF_OP_FLOW_GET: {
-                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_GET");
+//                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_GET");
                     struct dpif_flow_get *get = &op->flow_get;
 
                     COVERAGE_INC(dpif_flow_get);
@@ -1396,7 +1396,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
                 }
 
                 case DPIF_OP_FLOW_DEL: {
-                    VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_DEL");
+                    /*VLOG_INFO("+++++++++++zq dpif_operate: DPIF_OP_FLOW_DEL");*/
                     struct dpif_flow_del *del = &op->flow_del;
 
                     COVERAGE_INC(dpif_flow_del);

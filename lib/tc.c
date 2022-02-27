@@ -2235,7 +2235,7 @@ calc_offsets(struct tc_flower *flower, struct flower_key_to_pedit *m,
              int *cur_offset, int *cnt, ovs_be32 *last_word_mask,
              ovs_be32 *first_word_mask, ovs_be32 **mask, ovs_be32 **data)
 {
-    VLOG_INFO("+++++++++++zq: calc_offsets start");
+    /*VLOG_INFO("+++++++++++zq: calc_offsets start");*/
     int start_offset, max_offset, total_size;
     int diff, right_zero_bits, left_zero_bits;
     char *rewrite_key = (void *) &flower->rewrite.key;
@@ -2254,7 +2254,7 @@ calc_offsets(struct tc_flower *flower, struct flower_key_to_pedit *m,
     *first_word_mask = htonl(UINT32_MAX >> left_zero_bits);
     *data = (void *) (rewrite_key + m->flower_offset - diff);
     *mask = (void *) (rewrite_mask + m->flower_offset - diff);
-    VLOG_INFO("+++++++++++zq: calc_offsets end");
+    /*VLOG_INFO("+++++++++++zq: calc_offsets end");*/
 }
 
 static inline int
@@ -2309,7 +2309,7 @@ static int
 nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
                                  struct tc_flower *flower)
 {
-    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits start");
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits start");*/
     struct {
         struct tc_pedit sel;
         struct tc_pedit_key keys[MAX_PEDIT_OFFSETS];
@@ -2332,7 +2332,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
             continue;
         }
 
-        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits flower_pedit_map[i]=%d", i);
+        /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits flower_pedit_map[i]=%d", i);*/
         calc_offsets(flower, m, &cur_offset, &cnt, &last_word_mask,
                      &first_word_mask, &mask, &data);
 
@@ -2377,7 +2377,7 @@ nl_msg_put_flower_rewrite_pedits(struct ofpbuf *request,
         }
     }
     nl_msg_put_act_pedit(request, &sel.sel, sel.keys_ex);
-    VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits end");
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_rewrite_pedits end");*/
 
     return 0;
 }
@@ -2402,7 +2402,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
             /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: flower->action->type: %d", action->type);*/
             switch (action->type) {
             case TC_ACT_PEDIT: {
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT start");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT start");*/
                 act_offset = nl_msg_start_nested(request, act_index++);
                 error = nl_msg_put_flower_rewrite_pedits(request, flower);
                 if (error) {
@@ -2416,7 +2416,7 @@ nl_msg_put_flower_acts(struct ofpbuf *request, struct tc_flower *flower)
                     nl_msg_put_act_flags(request);
                     nl_msg_end_nested(request, act_offset);
                 }
-                VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT end");
+                /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_acts: TC_ACT_PEDIT end");*/
             }
             break;
             case TC_ACT_ENCAP: {
@@ -2666,6 +2666,7 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
 {
     /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options start");*/
     uint16_t host_eth_type = ntohs(flower->key.eth_type);
+    /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: host_eth_type=%"PRIu16,host_eth_type);*/
     bool is_vlan = eth_type_vlan(flower->key.eth_type);
     bool is_qinq = is_vlan && eth_type_vlan(flower->key.encap_eth_type[0]);
     bool is_mpls = eth_type_mpls(flower->key.eth_type);
@@ -2695,10 +2696,12 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
     FLOWER_PUT_MASKED_VALUE(src_mac, TCA_FLOWER_KEY_ETH_SRC);
 
     if (host_eth_type == ETH_P_IP || host_eth_type == ETH_P_IPV6) {
+        /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ETH_P_IP ||ETH_P_IPV6");*/
         FLOWER_PUT_MASKED_VALUE(ip_ttl, TCA_FLOWER_KEY_IP_TTL);
         FLOWER_PUT_MASKED_VALUE(ip_tos, TCA_FLOWER_KEY_IP_TOS);
 
         if (flower->mask.ip_proto && flower->key.ip_proto) {
+            /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ip_proto");*/
             nl_msg_put_u8(request, TCA_FLOWER_KEY_IP_PROTO,
                           flower->key.ip_proto);
         }
@@ -2711,9 +2714,13 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
         }
 
         if (flower->key.ip_proto == IPPROTO_UDP) {
+            /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: UDP");
+            VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: udp_src=%"PRIu16,flower->key.udp_src);
+            VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: udp_dst=%"PRIu16,flower->key.udp_dst);*/
             FLOWER_PUT_MASKED_VALUE(udp_src, TCA_FLOWER_KEY_UDP_SRC);
             FLOWER_PUT_MASKED_VALUE(udp_dst, TCA_FLOWER_KEY_UDP_DST);
         } else if (flower->key.ip_proto == IPPROTO_TCP) {
+            /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: TCP");*/
             FLOWER_PUT_MASKED_VALUE(tcp_src, TCA_FLOWER_KEY_TCP_SRC);
             FLOWER_PUT_MASKED_VALUE(tcp_dst, TCA_FLOWER_KEY_TCP_DST);
             FLOWER_PUT_MASKED_VALUE(tcp_flags, TCA_FLOWER_KEY_TCP_FLAGS);
@@ -2729,6 +2736,9 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
     }
 
     if (host_eth_type == ETH_P_IP) {
+        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ETH_P_IP");
+        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ipv4_src=%"PRIu32,flower->key.ipv4.ipv4_src);
+        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ipv4_dst=%"PRIu32,flower->key.ipv4.ipv4_dst);
             FLOWER_PUT_MASKED_VALUE(ipv4.ipv4_src, TCA_FLOWER_KEY_IPV4_SRC);
             FLOWER_PUT_MASKED_VALUE(ipv4.ipv4_dst, TCA_FLOWER_KEY_IPV4_DST);
     } else if (host_eth_type == ETH_P_IPV6) {

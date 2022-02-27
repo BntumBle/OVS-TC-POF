@@ -139,6 +139,14 @@ struct hmap_node *hmap_random_node(const struct hmap *);
          (NODE != OBJECT_CONTAINING(NULL, NODE, MEMBER)) || (NODE = NULL); \
          ASSIGN_CONTAINER(NODE, hmap_next_with_hash(&(NODE)->MEMBER),   \
                           MEMBER))
+
+#define HMAP_FOR_EACH_WITH_HASH__(NODE, MEMBER, HASH, HMAP)               \
+    for (INIT_CONTAINER(NODE, hmap_first_with_hash(HMAP, HASH), MEMBER); \
+         (NODE != OBJECT_CONTAINING(NULL, NODE, MEMBER))                \
+         || ((NODE = NULL), false);                                     \
+         ASSIGN_CONTAINER(NODE, hmap_next_with_hash(&(NODE)->MEMBER),   \
+                          MEMBER))
+
 #define HMAP_FOR_EACH_IN_BUCKET(NODE, MEMBER, HASH, HMAP)               \
     for (INIT_CONTAINER(NODE, hmap_first_in_bucket(HMAP, HASH), MEMBER); \
          (NODE != OBJECT_CONTAINING(NULL, NODE, MEMBER)) || (NODE = NULL); \

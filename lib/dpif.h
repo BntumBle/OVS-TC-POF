@@ -812,7 +812,7 @@ struct dpif_upcall {
                                    'rte_mbuf' in dp_packet is aligned atleast
                                    on a 64-byte boundary */
     enum dpif_upcall_type type;
-    struct nlattr *key;         /* Flow key. */
+    struct nlattr *key;         /* FFlow key. */
     size_t key_len;             /* Length of 'key' in bytes. */
     ovs_u128 ufid;              /* Unique flow identifier for 'key'. */
     struct nlattr *mru;         /* Maximum receive unit. */

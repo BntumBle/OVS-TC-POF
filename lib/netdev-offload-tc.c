@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <linux/if_ether.h>
+#include <include/openvswitch/types.h>
 
 #include "dpif.h"
 #include "hash.h"
@@ -1506,7 +1507,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
     enum tc_qdisc_hook hook = get_tc_qdisc_hook(netdev);
     struct tc_flower flower;
-    const struct flow *key = &match->flow;
+    const struct flow *key = & match->flow;
     struct flow *mask = &match->wc.masks;
     const struct flow_tnl *tnl = &match->flow.tunnel;
     const struct flow_tnl *tnl_mask = &mask->tunnel;
@@ -1550,6 +1551,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     , packets_count , bytes_count, delta_times);*/
 
     ifindex = netdev_get_ifindex(netdev);
+//    VLOG_INFO("++++zq: netdev_tc_flow_put:ifindex=%d",ifindex);
     if (ifindex < 0) {
         VLOG_ERR_RL(&error_rl, "flow_put: failed to get ifindex for %s: %s",
                     netdev_get_name(netdev), ovs_strerror(-ifindex));
@@ -1588,6 +1590,8 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 
     flower.key.eth_type = key->dl_type;
     flower.mask.eth_type = mask->dl_type;
+    /*VLOG_INFO("++++zq:flower.key.eth_type%"PRIu16,flower.key.eth_type);
+    VLOG_INFO("++++zq:flower.mask.eth_type%"PRIu16,flower.mask.eth_type);*/
     if (mask->mpls_lse[0]) {
         flower.key.mpls_lse = key->mpls_lse[0];
         flower.mask.mpls_lse = mask->mpls_lse[0];
@@ -1692,7 +1696,12 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
         flower.key.ip_ttl = key->nw_ttl;
         flower.mask.ip_ttl = mask->nw_ttl;
         mask->nw_ttl = 0;
-
+        /*VLOG_INFO("++++zq:flower.key.ip_proto%"PRIu8,flower.key.ip_proto);
+        VLOG_INFO("++++zq:flower.mask.ip_proto%"PRIu8,flower.mask.ip_proto);
+        VLOG_INFO("++++zq:flower.key.ip_tos%"PRIu8,flower.key.ip_tos);
+        VLOG_INFO("++++zq:flower.mask.ip_tos%"PRIu8,flower.mask.ip_tos);
+        VLOG_INFO("++++zq:flower.key.ip_ttl%"PRIu8,flower.key.ip_ttl);
+        VLOG_INFO("++++zq:flower.mask.ip_ttl%"PRIu8,flower.mask.ip_ttl);*/
         if (mask->nw_frag & FLOW_NW_FRAG_ANY) {
             flower.mask.flags |= TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT;
 
@@ -1739,11 +1748,16 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
 
         if (key->dl_type == htons(ETH_P_IP)) {
             flower.key.ipv4.ipv4_src = key->nw_src;
-            flower.mask.ipv4.ipv4_src = mask->nw_src;
+//            flower.mask.ipv4.ipv4_src = mask->nw_src;
+            flower.mask.ipv4.ipv4_src = 0xFFFFFFFF;
             flower.key.ipv4.ipv4_dst = key->nw_dst;
             flower.mask.ipv4.ipv4_dst = mask->nw_dst;
             mask->nw_src = 0;
             mask->nw_dst = 0;
+            /*VLOG_INFO("++++zq:flower.key.ipv4.ipv4_src%"PRIu32,flower.key.ipv4.ipv4_src);
+            VLOG_INFO("++++zq:flower.mask.ipv4.ipv4_src%"PRIu32,flower.mask.ipv4.ipv4_src);
+            VLOG_INFO("++++zq:flower.key.ipv4.ipv4_dst%"PRIu32,flower.key.ipv4.ipv4_dst);
+            VLOG_INFO("++++zq:flower.mask.ipv4.ipv4_dst%"PRIu32,flower.mask.ipv4.ipv4_dst);*/
         } else if (key->dl_type == htons(ETH_P_IPV6)) {
             flower.key.ipv6.ipv6_src = key->ipv6_src;
             flower.mask.ipv6.ipv6_src = mask->ipv6_src;
@@ -1817,7 +1831,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
             VLOG_DBG_RL(&rl, "Can only support %d actions", TCA_ACT_MAX_NUM);
             return EOPNOTSUPP;
         }
-        action = &flower.actions[flower.action_count];
+        action = &flower.actions[flower.action_count];//zq:action_count==0
         if (nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT) {
             VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_OUTPUT");
             odp_port_t port = nl_attr_get_odp_port(nla);
@@ -2124,6 +2138,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     }
 
     prio = get_prio_for_tc_flower(&flower);
+//    VLOG_INFO("++++zq: netdev_tc_flow_put:prio=%d",prio);
     if (prio == 0) {
         VLOG_ERR_RL(&rl, "couldn't get tc prio: %s", ovs_strerror(ENOSPC));
         return ENOSPC;
@@ -2133,18 +2148,23 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
     flower.act_cookie.len = sizeof *ufid;
 
     block_id = get_block_id_from_netdev(netdev);
+//    VLOG_INFO("++++zq: netdev_tc_flow_put:block_id=%"PRIu32,block_id);
     id = tc_make_tcf_id_chain(ifindex, block_id, chain, prio, hook);
+    /*VLOG_INFO("++++zq: netdev_tc_flow_put:chain=%"PRIu32,chain);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.u32[0]=%"PRIu32,ufid->u32[0]);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.u32[1]=%"PRIu32,ufid->u32[1]);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.u32[2]=%"PRIu32,ufid->u32[2]);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.u32[3]=%"PRIu32,ufid->u32[3]);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.lo=%"PRIu64,ufid->u64.lo);
+    VLOG_INFO("++++zq: netdev_tc_flow_put:ufid.lo=%"PRIu64,ufid->u64.lo);*/
     err = tc_replace_flower(&id, &flower);
     if (err) {
         VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: tc_replace_flower error");
     }
     if (!err) {
-//        VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: stats->n_packets=%ld, stats->n_bytes=%ld"
-//                  "stats->used=%lld", stats->n_packets, stats->n_bytes, stats->used);
-        /*if (stats) {
-            VLOG_INFO("+++++++++++zq: stats=1");
+        if (stats) {
             memset(stats, 0, sizeof *stats);
-        }*/
+        }
         add_ufid_tc_mapping(netdev, ufid, &id);
     }
 
@@ -2198,7 +2218,7 @@ netdev_tc_flow_del(struct netdev *netdev OVS_UNUSED,
                    const ovs_u128 *ufid,
                    struct dpif_flow_stats *stats)
 {
-    VLOG_INFO("+++++++++++zq: netdev_tc_flow_del start");
+//    VLOG_INFO("+++++++++++zq: netdev_tc_flow_del start");
     struct tc_flower flower;
     struct tcf_id id;
     int error;

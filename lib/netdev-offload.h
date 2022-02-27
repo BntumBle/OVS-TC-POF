@@ -109,7 +109,10 @@ struct dpif_class;
 struct dpif_port;
 int netdev_ports_insert(struct netdev *, const struct dpif_class *,
                         struct dpif_port *);
+int netdev_ports_insert__(struct netdev *, const char *dpif_type,
+                        struct dpif_port *);
 struct netdev *netdev_ports_get(odp_port_t port, const struct dpif_class *);
+struct netdev *netdev_ports_get__(odp_port_t port, const char *dpif_type);
 int netdev_ports_remove(odp_port_t port, const struct dpif_class *);
 odp_port_t netdev_ifindex_to_odp_port(int ifindex);
 

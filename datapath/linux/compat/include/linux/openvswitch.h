@@ -409,7 +409,7 @@ enum ovs_key_attr {
     OVS_KEY_ATTR_MODIFY_FIELD, /* zq: modify_field action in pof(29) */
     OVS_KEY_ATTR_ADD_FIELD,    /* zq: add_field action in pof */
     OVS_KEY_ATTR_DELETE_FIELD, /* zq: delete_field action in pof */
-}
+
 
 #ifdef __KERNEL__
 	/* Only used within kernel data path. */

@@ -7702,10 +7702,10 @@ commit_pof_set_field_action(const struct flow *flow, struct flow *base_flow,
          mask.value[i] = 254;
      }*/
 
-    VLOG_INFO("+++++++++++zq commit_pof_set_field_action: before pof_commit");
+    /*VLOG_INFO("+++++++++++zq commit_pof_set_field_action: before pof_commit");*/
     if (pof_commit(OVS_KEY_ATTR_SET_FIELD, use_masked,
                    &key, &base, &mask, sizeof key, odp_actions, pflow->flag)) {     //sqy notes: commit return false, no run
-        VLOG_INFO("+++++++++++zq commit_pof_set_field_action: after pof_commit");
+        /*VLOG_INFO("+++++++++++zq commit_pof_set_field_action: after pof_commit");*/
         put_pof_set_field_key(&base, base_flow, index);
         put_pof_set_field_key(&mask, &wc->masks, index);
     }
@@ -7717,11 +7717,11 @@ get_pof_set_field_key(const struct pof_flow *flow, struct ovs_key_set_field *eth
     eth->field_id = ntohs(flow->field_id[index]);
     eth->len = ntohs(flow->len[index]);
     eth->offset = ntohs(flow->offset[index]);
-    VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->offset=%d", eth->offset);
+    /*VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->offset=%d", eth->offset);*/
 
     for(int i=0; i < eth->len; i++){
         eth->value[i] = flow->value[index][i];
-        VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->value[i]=%d, flow->value[index][i] = %d", eth->value[i], flow->value[index][i]);
+        /*VLOG_INFO("+++++++++++zq get_pof_set_field_key: eth->value[i]=%d, flow->value[index][i] = %d", eth->value[i], flow->value[index][i]);*/
     }
 }
 
@@ -7734,7 +7734,7 @@ get_pof_set_field_mask(const struct pof_flow *flow, struct ovs_key_set_field *et
 
     for(int i=0; i < eth->len; i++){
         eth->value[i] = flow->mask[index][i];
-        VLOG_INFO("+++++++++++zq get_set_field_mask: eth->value[i]=%d, flow->mask[0][i] = %d", eth->value[i], flow->mask[0][i]);
+        /*VLOG_INFO("+++++++++++zq get_pof_set_field_mask: eth->value[i]=%d, flow->mask[0][i] = %d", eth->value[i], flow->mask[0][i]);*/
     }
 }
 
@@ -7746,7 +7746,7 @@ put_pof_set_field_key(const struct ovs_key_set_field *eth, struct pof_flow *flow
     flow->offset[index] = htons(eth->offset);
     for(int i=0; i < eth->len; i++){
         flow->value[index][i] = eth->value[i];
-        VLOG_INFO("++++++zq put_set_field_key:flow->value[0][%d]=%d",i, flow->value[0][i]);
+        /*VLOG_INFO("++++++zq put_pof_set_field_key:flow->value[0][%d]=%d",i, flow->value[0][i]);*/
     }
 }
 
@@ -7850,6 +7850,13 @@ commit_pof_add_field_action(const struct flow *flow, struct flow *base_flow,
         put_pof_add_field_key(&base, base_flow, index);
         put_pof_add_field_key(&mask, &wc->masks, index);
     }
+//    struct ovs_key_mpls mpls_key;
+//    mpls_key.mpls_lse = key.value;
+//    VLOG_INFO("+++++++++++zq commit_pof_add_field_action: before commit_mpls");
+//    commit_set_action(odp_actions, OVS_KEY_ATTR_MPLS,
+//                      &mpls_key, sizeof mpls_key);
+//    VLOG_INFO("+++++++++++zq commit_pof_add_field_action: after commit_mpls");
+//    flow_set_mpls_lse(pbase, 0, mpls_key.mpls_lse);
 }
 
 static void
