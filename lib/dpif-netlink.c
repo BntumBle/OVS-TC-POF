@@ -2252,6 +2252,7 @@ dpif_netlink_operate_chunks(struct dpif_netlink *dpif, struct dpif_op **ops,
     }
 }
 
+
 static void
 dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
                      enum dpif_offload_type offload_type)
@@ -2262,6 +2263,10 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
     int count = 0;
     int i = 0;
     int err = 0;
+    long long int now1;
+    long long int now2;
+    float delta_time;
+    int n = 0;
 
     if (offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()) {
         VLOG_DBG("Invalid offload_type: %d", offload_type);
@@ -2273,32 +2278,42 @@ dpif_netlink_operate(struct dpif *dpif_, struct dpif_op **ops, size_t n_ops,
         while (n_ops > 0) {
             count = 0;
 
-            while (n_ops > 0 && count < OPERATE_MAX_OPS) {//zq:one flow one op
+            while (n_ops > 0 && count < OPERATE_MAX_OPS) {
                 struct dpif_op *op = ops[i++];
                 /*VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev");*/
                 /*zq:selective offload*/
-                const struct nlattr *nla;
-                int action_count=0;
-                size_t left;
-                if(op->type == DPIF_OP_FLOW_PUT) {
-                    VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev FLOW_PUT_1");
-                    struct dpif_flow_put *put = &op->flow_put;
-                    NL_ATTR_FOR_EACH(nla, left, put->actions, put->actions_len) {
-                        if (action_count < 3) {
-                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count==0");
-                            if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
-                                VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev OUTPUT_1");
-                                err = try_send_to_netdev(dpif, op);
-                            } else {
-                              VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev NO_OUTPUT_1");
-                                dpif_netlink_operate_chunks(dpif, ops, n_ops);
-                            }
-                            action_count++;
-                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count:%d",action_count);
-                        }
-                    }
-                }
-//                err = try_send_to_netdev(dpif, op);
+//                const struct nlattr *nla;
+//                int action_count=0;
+//                size_t left;
+//                if(op->type == DPIF_OP_FLOW_PUT) {
+//                    VLOG_INFO("+++++++++++zq:  dpif_netlink_operate: before try_send_to_netdev FLOW_PUT_1");
+//                    struct dpif_flow_put *put = &op->flow_put;
+//                    NL_ATTR_FOR_EACH(nla, left, put->actions, put->actions_len) {
+//                        if (action_count < 3) {
+//                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count==0");
+//                            if (nl_attr_type(nla) == OVS_ACTION_ATTR_SET_MASKED) {
+//                                VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev OUTPUT_1");
+//                                err = try_send_to_netdev(dpif, op);
+//                            } else {
+//                              VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev NO_OUTPUT_1");
+//                                dpif_netlink_operate_chunks(dpif, ops, n_ops);
+//                            }
+//                            action_count++;
+//                            VLOG_INFO("+++++++++++zq:  dpif_netlink_operate:try_send_to_netdev action_count:%d",action_count);
+//                        }
+//                    }
+//                }
+                /*zq: compute add time*/
+//                now1 = time_msec();
+                err = try_send_to_netdev(dpif, op);
+//                now2 = time_msec();
+//                delta_time = now2 - now1;
+//                n++;
+
+//                if(delta_time != 0){
+//                    VLOG_INFO("++++zq:try_send_to_netdev:delta_time:%f,i:%d,n_ops:%d", delta_time,i,n_ops);
+//                }
+
                 if (err && err != EEXIST) {
                     if (offload_type == DPIF_OFFLOAD_ALWAYS) {
                         /* We got an error while offloading an op. Since

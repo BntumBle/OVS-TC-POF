@@ -1331,7 +1331,7 @@ dpif_operate(struct dpif *dpif, struct dpif_op **ops, size_t n_ops,
 {
 //    VLOG_INFO("+++++++++++zq:  dpif_operate start");
     if (offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()) {  //zq note: not run
-        VLOG_INFO("+++++++++++zq dpif_operate: offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()");
+        /*VLOG_INFO("+++++++++++zq dpif_operate: offload_type == DPIF_OFFLOAD_ALWAYS && !netdev_is_flow_api_enabled()");*/
         size_t i;
         for (i = 0; i < n_ops; i++) {
             struct dpif_op *op = ops[i];

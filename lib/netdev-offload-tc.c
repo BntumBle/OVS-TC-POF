@@ -1833,7 +1833,7 @@ netdev_tc_flow_put(struct netdev *netdev, struct match *match,
         }
         action = &flower.actions[flower.action_count];//zq:action_count==0
         if (nl_attr_type(nla) == OVS_ACTION_ATTR_OUTPUT) {
-            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_OUTPUT");
+//            VLOG_INFO("+++++++++++zq: netdev_tc_flow_put: nla_action == OVS_ACTION_ATTR_OUTPUT");
             odp_port_t port = nl_attr_get_odp_port(nla);
             struct netdev *outdev = netdev_ports_get(port, info->dpif_class);
 

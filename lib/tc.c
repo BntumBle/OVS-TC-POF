@@ -2736,9 +2736,9 @@ nl_msg_put_flower_options(struct ofpbuf *request, struct tc_flower *flower)
     }
 
     if (host_eth_type == ETH_P_IP) {
-        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ETH_P_IP");
+        /*VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ETH_P_IP");
         VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ipv4_src=%"PRIu32,flower->key.ipv4.ipv4_src);
-        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ipv4_dst=%"PRIu32,flower->key.ipv4.ipv4_dst);
+        VLOG_INFO("+++++++++++zq: nl_msg_put_flower_options: ipv4_dst=%"PRIu32,flower->key.ipv4.ipv4_dst);*/
             FLOWER_PUT_MASKED_VALUE(ipv4.ipv4_src, TCA_FLOWER_KEY_IPV4_SRC);
             FLOWER_PUT_MASKED_VALUE(ipv4.ipv4_dst, TCA_FLOWER_KEY_IPV4_DST);
     } else if (host_eth_type == ETH_P_IPV6) {

@@ -943,12 +943,18 @@ udpif_run_delete_flow(struct udpif *udpif)
     long long int now;
     long long int now1;
     long long int now2;
-    long long int delta_time;
+    long long int now3;
+    long long int now4;
+    long long int add_time;
+    long long int delete_time;
+    int c1 = 0;
+    int c2 = 0;
     now = time_msec();
-    if (now < udpif->update_flow_time + 1000) {
+    if (now < udpif->update_flow_time + 5000) {
+//        VLOG_INFO("++++zq:udpif_run_update_flow:time < 5s");
         return;
     }
-
+    now1 = time_msec();
     for (size_t i = 0; i < N_UMAPS; i++) {
         struct udpif_key *ukey;
         struct umap *umap = &udpif->ukeys[i];
@@ -956,39 +962,54 @@ udpif_run_delete_flow(struct udpif *udpif)
         CMAP_FOR_EACH (ukey, cmap_node, &umap->cmap) {
             int err;
             /*VLOG_INFO("++++zq:udpif_run_update_flow:bandwidth:%f",bandwidth);*/
-            if (bandwidth > 500) {
-                now1 = time_msec();
-                err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
-                if (err) {
-                    VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_unprogram error");
-                }
-                ukey->bd_backlog_packets = ukey->bd_npackets;
-                ukey->bd_backlog_bytes = ukey->bd_nbytes;
-                udpif->update_flow_time = now;
-                now2 = time_msec();
-                delta_time = now2 - now1;
-                VLOG_INFO("++++zq:udpif_run_update_flow:delta_time:%lld", delta_time);
-                VLOG_INFO("++++zq:udpif_run_update_flow:time:%lld", update_time);
-                update_time = update_time + delta_time;
-            } else{
-                VLOG_INFO("++++zq:udpif_run_update_flow:bandwidth:%f",bandwidth);
+            c1++;
+            err = udpif_flow_unprogram(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            if (err) {
+                VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_unprogram error");
             }
+            ukey->bd_backlog_packets = ukey->bd_npackets;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes;
+            udpif->update_flow_time = now;
         }
     }
-    if(update_time !=0 ) {
-        VLOG_INFO("++++zq:udpif_run_update_flow:add_time:%lld", update_time);
-    }
+    now2 = time_msec();
+    delete_time = now2 - now1;
+    VLOG_INFO("++++zq:udpif_run_update_flow:delete_time:%lld, c1:%d", delete_time,c1);
+
+    now3 = time_msec();
+    for (size_t i = 0; i < N_UMAPS; i++) {
+        struct udpif_key *ukey;
+        struct umap *umap = &udpif->ukeys[i];
+
+        CMAP_FOR_EACH (ukey, cmap_node, &umap->cmap) {
+            int err;
+            c2++;
+            err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            if (err) {
+                VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_program error");
+            }
+            ukey->bd_backlog_packets = ukey->bd_npackets;
+            ukey->bd_backlog_bytes = ukey->bd_nbytes;
+            }
+        }
+    now4 = time_msec();
+    add_time = now4 - now3;
+    VLOG_INFO("++++zq:udpif_run_update_flow:add_time:%lld, c2:%d", add_time,c2);
+    udpif->update_flow_time = now;
+
 }
 
 static void
 udpif_run_add_flow(struct udpif *udpif)
 {
-    long long int now;
-    long long int now1;
-    long long int now2;
-    long long int delta_time;
+    float now;
+    float now1;
+    float now2;
+    float delta_time;
     now = time_msec();
-    if (now < udpif->update_flow_time + 3000) {
+    int c = 0;
+
+    if (now < udpif->update_flow_time + 5000) {
         return;
     }
 
@@ -1001,15 +1022,18 @@ udpif_run_add_flow(struct udpif *udpif)
             /*VLOG_INFO("++++zq:udpif_run_update_flow:bandwidth:%f",bandwidth);*/
             now1 = time_msec();
             err = udpif_flow_program(udpif, ukey, DPIF_OFFLOAD_ALWAYS);
+            c++;
             if (err) {
                 VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_unprogram error");
             }
+            now2 = time_msec();
+            delta_time = now2 - now1;
+
             ukey->bd_backlog_packets = ukey->bd_npackets;
             ukey->bd_backlog_bytes = ukey->bd_nbytes;
             udpif->update_flow_time = now;
-            now2 = time_msec();
-            delta_time = now2 - now1;
-            VLOG_INFO("++++zq:udpif_run_update_flow:delta_time:%lld", delta_time);
+
+            VLOG_INFO("++++zq:udpif_run_update_flow:delta_time:%f, c:%d", delta_time, c);
             VLOG_INFO("++++zq:udpif_run_update_flow:time:%lld", update_time);
             update_time = update_time + delta_time;
         }
@@ -1153,7 +1177,7 @@ udpif_revalidator(void *arg)
             /*udpif_run_update_bandwidth(udpif);*/
 
             /*zq:selective offload*/
-//            udpif_run_delete_flow(udpif);
+            udpif_run_delete_flow(udpif);
 //            udpif_run_add_flow(udpif);
 
             /*if (time_msec() - last_time > 1000) {
@@ -3607,6 +3631,7 @@ static int
 udpif_flow_program(struct udpif *udpif, struct udpif_key *ukey,
                    enum dpif_offload_type offload_type)
 {
+    VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_program");
     struct dpif_op *opsp;
     struct ukey_op uop;
 
@@ -3621,6 +3646,7 @@ static int
 udpif_flow_unprogram(struct udpif *udpif, struct udpif_key *ukey,
                      enum dpif_offload_type offload_type)
 {
+    VLOG_INFO("++++zq:udpif_run_update_flow:udpif_flow_unprogram");
     struct dpif_op *opsp;
     struct ukey_op uop;
 
